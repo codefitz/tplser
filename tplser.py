@@ -2,8 +2,6 @@
 #
 # Version 0.04 Alpha
 #
-# License: Do as you please...
-#
 # Author: Wes Fitzpatrick wes@wafitz.net
 #
 # Changes
