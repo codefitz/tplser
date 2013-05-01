@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #
-# Version 0.04 Alpha
+# Version 0.05 (alpha)
 #
-# Author: Wes Fitzpatrick wes@wafitz.net
+# Author: Wes Fitzpatrick (github@wafitz.net)
 #
-# Changes
-# Draft Started: 2013-04-23
+# Source: 
+# http://github.com/codefitz/tplser
 #
 
 import sys
@@ -158,17 +158,18 @@ with open(sys.argv[1]) as tpl_file:
     ##########################
 
     module_num, endpattern_num, pattern_num, line_num, body_num, endbody_num = 0, 0, 0, 0, 0, 0
-    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval = 0, 0, 0, 0, 0, 0, 0, 0
+    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     logs, runcmds, filegets, open_notes, comments, sis, details, imported = 0, 0, 0, 0, 0, 0, 0, 0
-    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count = 0, 0, 0, 0, 0, 0, 0, 0, 0
+    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = 0, 0, 0, 0, 0, 0, 0
     patt_err, if_err, for_err, body_err, table_err = [], [], [], [], []
     lines, mod_line = [], []
     ov_pattern, trig_pattern = [], []
     missing_trig, missing_endtrig, missing_trigon = [], [], []
-    has_trigger, has_ov, initlist, empties, assigned, imports  = [], [], [], [], [], []
+    has_trigger, has_ov, initlist, empties, assigned, imports, unterminated  = [], [], [], [], [], [], []
     missing_ov, missing_endov, missing_tags = [], [], []
-    ov_tags, trig_on, ignore_text, constants = False, False, False, False
+    ov_tags, trig_on, ignore_text, constants, defins = False, False, False, False, False
+    config_var, defins_var = "", ""
 
     # For storing custom variables declared in pattern, predefined keywords added here:
     varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'none' ]
@@ -207,7 +208,32 @@ with open(sys.argv[1]) as tpl_file:
             if end_table:
                 endtable_count, table_eval = close_match(endtable_count, table_eval)
                 table_eval = loop_eval(table_eval, table_err, line_num)
-                
+
+            # Configuration evaluation
+            config = re.search("^\s*configuration\s+\w+\s+\d+\.\d", line)
+            if config:
+                config_eval += 1
+                config_var = re.match("^\s*configuration\s+(\w+)\s+\d+\.\d", line)
+
+            end_config = re.search("^\s*end\sconfiguration;", line)
+            if end_config:
+                config_eval -= 1
+        
+            # Definitions evaluation
+            defins = re.search("^\s*definitions\s+\w+\s+\d+\.\d", line)
+            if defins:
+                defins = True
+                defins_eval += 1
+                defins_var = re.match("^\s*definitions\s+(\w+)\s+\d+\.\d", line)
+
+            end_defins = re.search("^\s*end\sdefinitions;", line)
+            if end_defins:
+                defins = False
+                defins_eval -= 1
+
+            # if inside definitions block
+            if defins:
+                pass
         
             # Count of logs
             if re.match("\s*log\.\w+\(", line):
@@ -232,6 +258,14 @@ with open(sys.argv[1]) as tpl_file:
             # Count of Details
             if re.search("\s*model\.Detail\(", line):
                 details += 1
+
+            # Variable initialisations
+            var = re.search(":=", line)
+            if var:
+                var_term = re.search(":=.*;", line)
+                if not var_term:
+                    unterminated_count += 1
+                    unterminated.append(str(line_num) + ": " + line)
 
             # Pattern evaluation
             pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern_parse(
@@ -350,7 +384,11 @@ with open(sys.argv[1]) as tpl_file:
                         assigned.append(subs.group(1))
 
                 if re.search(":=\s*(\w+)\+?.*;", line):
-                    assigned.append(re.search(":=\s*(\w+)\+?.*;", line).group(1))
+                    var = re.search(":=\s*(\w+)\+?.*;", line).group(1)
+                    if var == defins_var:
+                        pass
+                    else:
+                        assigned.append(re.search(":=\s*(\w+)\+?.*;", line).group(1))
 
                 if re.search("\.(result|content)", line):
                     assigned.append(re.search("(\w+)\.(result|content)", line).group(1))
@@ -483,9 +521,19 @@ elif (module_num == 0):
     print (" *Something wrong with module declaration!")
 
 if (meta_eval < 0):
-    print (" *Missing module metadata statement!")
+    print (" *Missing module metadata opening statement!")
 if (meta_eval > 0):
     print (" *Missing module end metadata statement!")
+
+if (config_eval < 0):
+    print (" *Missing module configuration opening statement!")
+if (config_eval > 0):
+    print (" *Missing module end configuration statement!")
+
+if (defins_eval < 0):
+    print (" *Missing module definitions opening statement!")
+if (defins_eval > 0):
+    print (" *Missing module end definitions statement!")
 
 if (missing_ov or missing_endov):
     if ov_err > 0:
@@ -567,11 +615,16 @@ if (table_err or rev_table_err):
 else:
     print (" Number of tables declared:            " +str(table_count))
 
-#print "\n" + str(varlist)
+print "\n" + str(varlist)
 if initlist:
     print "\n *Uninitialised variables found:"
     for uvar in initlist:
         print ("    line " + str(uvar))
     print "\r"
 
+if unterminated:
+    print "\n *Syntax error in lines found:"
+    for tvar in unterminated:
+        print ("    line " + str(tvar))
+    
 print "\n"
