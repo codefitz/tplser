@@ -157,19 +157,19 @@ with open(sys.argv[1]) as tpl_file:
     #== Read Lines Forward ==#
     ##########################
 
-    module_num, endpattern_num, pattern_num, line_num, body_num, endbody_num = 0, 0, 0, 0, 0, 0
-    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    logs, runcmds, filegets, open_notes, comments, sis, details, imported = 0, 0, 0, 0, 0, 0, 0, 0
-    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = 0, 0, 0, 0, 0, 0, 0
-    patt_err, if_err, for_err, body_err, table_err = [], [], [], [], []
-    lines, mod_line = [], []
-    ov_pattern, trig_pattern = [], []
-    missing_trig, missing_endtrig, missing_trigon = [], [], []
-    has_trigger, has_ov, initlist, empties, assigned, imports, unterminated  = [], [], [], [], [], [], []
-    missing_ov, missing_endov, missing_tags = [], [], []
-    ov_tags, trig_on, ignore_text, constants, defins = False, False, False, False, False
-    config_var, defins_var = "", ""
+    module_num, endpattern_num, pattern_num, line_num, body_num, endbody_num = [0]*6
+    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval = [0]*10
+    logs, runcmds, filegets, open_notes, comments, sis, details, imported = [0]*8
+    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count = [0]*10
+    ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = [0]*7
+    patt_err, if_err, for_err, body_err, table_err = ([] for i in range(5))
+    lines, mod_line = ([] for i in range(2)) 
+    ov_pattern, trig_pattern = ([] for i in range(2))
+    missing_trig, missing_endtrig, missing_trigon = ([] for i in range(3))
+    has_trigger, has_ov, initlist, empties, assigned, imports, unterminated  = ([] for i in range(7))
+    missing_ov, missing_endov, missing_tags = ([] for i in range(3))
+    ov_tags, trig_on, ignore_text, constants, defins, open_bracket = [False] * 6
+    config_var, defins_var, ob_line = [""]*3
 
     # For storing custom variables declared in pattern, predefined keywords added here:
     varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'none' ]
@@ -260,12 +260,69 @@ with open(sys.argv[1]) as tpl_file:
                 details += 1
 
             # Variable initialisations
+            close_var = re.search("\);$", line)
+            if not close_var:
+                close_var = re.search("\];$", line)
+
+            if close_var:
+                if open_bracket:
+                    open_bracket = False
+                elif re.search(":=", line):
+                    pass
+                elif re.search("^\s*log\.", line):
+                    pass
+                elif re.search("^\s*list\.", line):
+                    pass
+                elif re.search("^\s*xpath\.", line):
+                    pass
+                elif re.search("^\s*model\.", line):
+                    pass
+                else:
+                    print "Syntax err: "
+                    print (str(line_num) + ": " +str.strip(line))
+
             var = re.search(":=", line)
+
             if var:
+                if open_bracket:
+                    open_bracket = False
+
                 var_term = re.search(":=.*;", line)
                 if not var_term:
-                    unterminated_count += 1
-                    unterminated.append(str(line_num) + ": " + line)
+                    if re.search("(?<=\().*$", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    elif re.search("\((//.*)?$", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    elif re.search(",\s*(//.*)?$", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    elif re.search("\+\s*(//.*)?$", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    elif re.search("\w+\s*:=\s*\w+(//.*)?$", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    elif re.search("^\s*on\s+\w+\s*:=\s*\w+", line):
+                        open_bracket = True
+                        ob_line_num = line_num
+                        ob_line = line
+                        pass
+                    else:
+                        unterminated_count += 1
+                        unterminated.append(str(line_num) + ": " + str.strip(ob_line))
+                        open_bracket = False
 
             # Pattern evaluation
             pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern_parse(
@@ -401,7 +458,7 @@ with open(sys.argv[1]) as tpl_file:
                         assigned.append(cond)
 
                 if re.search("^\s*if\s+(not\s+)?", line):
-                    assigned.append(re.search("^\s*if\s+(not\s+)?(\w+)", line).group(2))
+                    assigned.append(re.search("^\s*if\s+(not\s+)?(\S+)", line).group(2))
 
                     has_substring = re.search("has\s*substring\s*(\w+)", line)
                     if has_substring:
@@ -445,10 +502,10 @@ with open(sys.argv[1]) as tpl_file:
     #== Read Lines in Reverse (to get for/if loops) ==#
     ###################################################
 
-    rev_endpattern_num, rev_pattern_num, rev_endbody_num, rev_body_num = 0, 0, 0, 0
-    rev_if_count, rev_endif_count, rev_for_count, rev_endfor_count, rev_table_count, rev_endtable_count = 0, 0, 0, 0, 0, 0
-    rev_patt_eval, rev_if_eval, rev_for_eval, rev_body_eval, rev_table_eval = 0, 0, 0, 0, 0
-    rev_patt_err, rev_if_err, rev_for_err, rev_body_err, rev_table_err = [], [], [], [], []
+    rev_endpattern_num, rev_pattern_num, rev_endbody_num, rev_body_num = [0]*4
+    rev_if_count, rev_endif_count, rev_for_count, rev_endfor_count, rev_table_count, rev_endtable_count = [0]*6
+    rev_patt_eval, rev_if_eval, rev_for_eval, rev_body_eval, rev_table_eval = [0]*5
+    rev_patt_err, rev_if_err, rev_for_err, rev_body_err, rev_table_err = ([] for i in range(5))
 
     rev_line_num = line_num + 1
 
