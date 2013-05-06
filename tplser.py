@@ -146,8 +146,7 @@ def print_eval(section, open, close, clause, err, rev_err):
             print ("   line " +str(line_err) + ": " + clause + " here or inside missing closing statement.")
     print "\n"
 
-parsing, rev_parsing, patt_parse, rev_patt_parse = False, False, False, False
-fwd = True
+parsing, rev_parsing, patt_parse, rev_patt_parse, tpl_parsing, fwd = [False] * 6
 pattern_name = ""
 pattern_list = []
 
@@ -172,7 +171,7 @@ with open(sys.argv[1]) as tpl_file:
     config_var, defins_var, ob_line = [""]*3
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'none' ]
+    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'size', 'number', 'none' ]
 
     for line in tpl_file:
         lines.append(line.strip())
@@ -213,28 +212,43 @@ with open(sys.argv[1]) as tpl_file:
             config = re.search("^\s*configuration\s+\w+\s+\d+\.\d", line)
             if config:
                 config_eval += 1
-                config_var = re.match("^\s*configuration\s+(\w+)\s+\d+\.\d", line)
+                config_var = re.match("^\s*configuration\s+(\w+)\s+\d+\.\d", line).group(1)
+                tpl_parsing = True
 
             end_config = re.search("^\s*end\sconfiguration;", line)
             if end_config:
                 config_eval -= 1
-        
+                tpl_parsing = False
+
             # Definitions evaluation
-            defins = re.search("^\s*definitions\s+\w+\s+\d+\.\d", line)
-            if defins:
+            definitions = re.search("^\s*definitions\s+\w+\s+\d+\.\d", line)
+            if definitions:
                 defins = True
                 defins_eval += 1
                 defins_var = re.match("^\s*definitions\s+(\w+)\s+\d+\.\d", line)
+                tpl_parsing = True
 
             end_defins = re.search("^\s*end\sdefinitions;", line)
             if end_defins:
                 defins = False
                 defins_eval -= 1
+                tpl_parsing = False
 
-            # if inside definitions block
+            # Definition statements
             if defins:
-                pass
-        
+                print line
+                define = line
+                print define
+                define_var = re.search("^\s*define\s+(\w+)\(", define)
+                def_vars = re.search("\((.*)\)", define)
+                def_returns = re.search("->\s*(.*)\s*$", define)
+                if define_var:
+                    var_split = def_vars.split(",")
+                    return_split = def_returns.split(",")
+                    split_vars = var_split + return_split
+                    for splits in split_vars:
+                        var_list.append(splits)
+
             # Count of logs
             if re.match("\s*log\.\w+\(", line):
                 logs += 1
@@ -276,6 +290,10 @@ with open(sys.argv[1]) as tpl_file:
                 elif re.search("^\s*xpath\.", line):
                     pass
                 elif re.search("^\s*model\.", line):
+                    pass
+                elif re.search("^\s*inference\.", line):
+                    pass
+                elif re.compile("^\s*%s\." %defins_var):
                     pass
                 else:
                     print "Syntax err: "
@@ -368,7 +386,7 @@ with open(sys.argv[1]) as tpl_file:
 
             if re.match("^\s*end\sconstants;", line):
                 constants = False
-                    
+
             # Trigger evaluation
             if re.match("^\s*triggers\s*$", line):
                 trig_count, trig_eval, has_trigger, trig_on = open_requireds(pattern_name, line, trig_count, trig_eval, has_trigger, trig_on)
@@ -391,112 +409,141 @@ with open(sys.argv[1]) as tpl_file:
 
                 # Check end ov
                 ov_eval, missing_endov, endov_err = closing_decs(ov_eval, missing_endov, pattern_name, endov_err)
-
                 # Check end trigger
                 trig_eval, missing_endtrig, endtrig_err = closing_decs(trig_eval, missing_endtrig, pattern_name, endtrig_err)
 
-                # Check IF evaluations
-                if re.match("^\s*if\s+", line):
-                    if_count, if_eval = open_match(if_count, if_eval)
-                if re.match("^\s*end\sif;", line):
-                    endif_count, if_eval = close_match(endif_count, if_eval)
-                    if_eval = loop_eval(if_eval, if_err, line_num)
-                # Check FOR evaluations
-                if re.match("^\s*for\s.*do", line):
-                    for_count, for_eval = open_match(for_count, for_eval)
-                if re.match("^\s*end\sfor;", line):
-                    endfor_count, for_eval = close_match(endfor_count, for_eval)
-                    for_eval = loop_eval(for_eval, for_err, line_num)
+                # Set general TPL parsing
+                tpl_parsing = True
 
-                # Variable initialisations
-                if re.search("\S+\s*:=", line):
-                    var = re.search("(\S+)\s*:=", line).group(1)
-                    if "(" in var:
+            else:
+                tpl_parsing = False
+
+        # General TPL parsing for Definitions and Body
+        if tpl_parsing:
+
+            # Check IF evaluations
+            if re.match("^\s*if\s+", line):
+                if_count, if_eval = open_match(if_count, if_eval)
+            if re.match("^\s*end\sif;", line):
+                endif_count, if_eval = close_match(endif_count, if_eval)
+                if_eval = loop_eval(if_eval, if_err, line_num)
+            # Check FOR evaluations
+            if re.match("^\s*for\s.*do", line):
+                for_count, for_eval = open_match(for_count, for_eval)
+            if re.match("^\s*end\sfor;", line):
+                endfor_count, for_eval = close_match(endfor_count, for_eval)
+                for_eval = loop_eval(for_eval, for_err, line_num)
+
+            # Variable initialisations
+            if re.search("\S+\s*:=", line):
+                var = re.search("(\S+)\s*:=", line).group(1)
+                if ":=" in var:
+                    var = re.search("(\S+)\s*:=", var).group(1)
+                if "(" in var:
+                    pass
+                elif "[" in var:
+                    pass
+                else:
+                    varlist.append(var)
+
+            if re.search("^\s*for\s*\S+\s*in", line):
+                varlist.append(re.search("^\s*for\s*(\S+)\s*in", line).group(1))
+
+            # Variables utilised
+            if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+),", line):
+                cond = re.search("\((\S+),", line).group(1)
+                if "." in cond:
+                    assigned.append(re.search("(\w+)\.", cond).group(1))
+                else:
+                    assigned.append(cond)
+
+                subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
+                if subs:
+                    assigned.append(subs.group(1))
+
+            if re.search("%\w+%", line):
+                assigned.append(re.search("%(\w+)%", line).group(1))
+
+            if re.search("^\s*model\.\w+\(\w+\);", line):
+                assigned.append(re.search("^\s*model\.\w+\((\w+)\);", line).group(1))
+
+            if re.search("^\s*list\.", line):
+                assigned.append(re.search("\((\S+),", line).group(1))
+                subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
+                if subs:
+                    assigned.append(subs.group(1))
+
+            if re.search(":=\s*(\w+)\+?.*;", line):
+                var = re.search(":=\s*(\w+)\+?.*;", line).group(1)
+                if var == defins_var:
+                    pass
+                else:
+                    assigned.append(re.search(":=\s*(\w+)\+?.*;", line).group(1))
+
+            if re.search("\.(result|content)", line):
+                assigned.append(re.search("(\w+)\.(result|content)", line).group(1))
+
+            if re.search("^\s*for\s*\S+\s*in", line):
+                cond = re.search("^\s*for\s*\S+\s*in\s*(\S+)", line).group(1)
+                if "(" in cond:
+                    assigned.append(re.search("\((\S+),", cond).group(1))
+                elif "." in cond:
+                    assigned.append(re.search("(\w+)\.", cond).group(1))
+                    assigned.append(re.search("\.(\w+)", cond).group(1))
+                else:
+                    assigned.append(cond)
+
+            if re.search("^\s*if\s+(not\s+)?", line):
+                cond = re.search("^\s*if\s+(size)?\(?(not\s+)?(\S+)(?<!\))", line).group(3)
+                if "." in cond:
+                    assigned.append(re.search("(\w+)\.", cond).group(1))
+                elif "[" in cond:
+                    assigned.append(re.search("(\w+)\[", cond).group(1))
+                    assigned.append(re.search("\[(\w+)", cond).group(1))
+                else:
+                    assigned.append(cond)
+
+                has_substring = re.search("has\s*substring\s*(\w+)", line)
+                if has_substring:
+                    assigned.append(has_substring.group(1))
+
+                matches_regex = re.search("matches\s+regex\s*(\w+)", line)
+                if matches_regex:
+                    assigned.append(matches_regex.group(1))
+
+                or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", line)
+                if or_or:
+                    assigned.append(or_or.group(2))
+
+                and_and = re.search("\s+and\s+(\w+)", line)
+                if and_and:
+                    assigned.append(and_and.group(1))
+
+                equals = re.search("=\s*(\w+)", line)
+                if equals:
+                    assigned.append(equals.group(1))
+
+                not_in = re.search("not\s*in\s*(\w+)", line)
+                if not_in:
+                    assigned.append(not_in.group(1))
+
+            for var in assigned:
+                if var not in varlist:
+                    if re.match("[\"\']", var):
                         pass
-                    elif "[" in var:
+                    elif ".result" in var:
+                        pass
+                    elif ".content" in var:
+                        pass
+                    elif re.match("^\d+$", var):
+                        pass
+                    elif var in imports:
+                        pass
+                    elif var == config_var :
                         pass
                     else:
-                        varlist.append(var)
-
-                if re.search("^\s*for\s*\S+\s*in", line):
-                    varlist.append(re.search("^\s*for\s*(\S+)\s*in", line).group(1))
-
-                # Variables utilised
-                if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+),", line):
-                    assigned.append(re.search("\((\S+),", line).group(1))
-                    subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
-                    if subs:
-                        assigned.append(subs.group(1))
-
-                if re.search("%\w+%", line):
-                    assigned.append(re.search("%(\w+)%", line).group(1))
-
-                if re.search("^\s*model\.\w+\(\w+\);", line):
-                    assigned.append(re.search("^\s*model\.\w+\((\w+)\);", line).group(1))
-
-                if re.search("^\s*list\.", line):
-                    assigned.append(re.search("\((\S+),", line).group(1))
-                    subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
-                    if subs:
-                        assigned.append(subs.group(1))
-
-                if re.search(":=\s*(\w+)\+?.*;", line):
-                    var = re.search(":=\s*(\w+)\+?.*;", line).group(1)
-                    if var == defins_var:
-                        pass
-                    else:
-                        assigned.append(re.search(":=\s*(\w+)\+?.*;", line).group(1))
-
-                if re.search("\.(result|content)", line):
-                    assigned.append(re.search("(\w+)\.(result|content)", line).group(1))
-
-                if re.search("^\s*for\s*\S+\s*in", line):
-                    cond = re.search("^\s*for\s*\S+\s*in\s*(\S+)", line).group(1)
-                    if "(" in cond:
-                        assigned.append(re.search("\((\S+),", cond).group(1))
-                    else:
-                        assigned.append(cond)
-
-                if re.search("^\s*if\s+(not\s+)?", line):
-                    assigned.append(re.search("^\s*if\s+(not\s+)?(\S+)", line).group(2))
-
-                    has_substring = re.search("has\s*substring\s*(\w+)", line)
-                    if has_substring:
-                        assigned.append(has_substring.group(1))
-
-                    matches_regex = re.search("matches\s+regex\s*(\w+)", line)
-                    if matches_regex:
-                        assigned.append(matches_regex.group(1))
-
-                    or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", line)
-                    if or_or:
-                        assigned.append(or_or.group(2))
-
-                    and_and = re.search("\s+and\s+(\w+)", line)
-                    if and_and:
-                        assigned.append(and_and.group(1))
-
-                    equals = re.search("=\s*(\w+)", line)
-                    if equals:
-                        assigned.append(equals.group(1))
-
-                    not_in = re.search("not\s*in\s*(\w+)", line)
-                    if not_in:
-                        assigned.append(not_in.group(1))
-
-                for var in assigned:
-                    if var not in varlist:
-                        if re.match("[\"\']", var):
-                            pass
-                        elif ".result" in var:
-                            pass
-                        elif ".content" in var:
-                            pass
-                        elif re.match("^\d+$", var):
-                            pass
-                        else:
-                            initlist.append(str(line_num) + ": " + str(var))
-                assigned = []
+                        initlist.append(str(line_num) + ": " + str(var))
+            assigned = []
 
     ###################################################
     #== Read Lines in Reverse (to get for/if loops) ==#
@@ -672,7 +719,7 @@ if (table_err or rev_table_err):
 else:
     print (" Number of tables declared:            " +str(table_count))
 
-print "\n" + str(varlist)
+#print "\n" + str(varlist)
 if initlist:
     print "\n *Uninitialised variables found:"
     for uvar in initlist:
