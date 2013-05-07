@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.05 (alpha)
+# Version 0.06 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -158,8 +158,8 @@ with open(sys.argv[1]) as tpl_file:
 
     module_num, endpattern_num, pattern_num, line_num, body_num, endbody_num = [0]*6
     patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval = [0]*10
-    logs, runcmds, filegets, open_notes, comments, sis, details, imported = [0]*8
-    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count = [0]*10
+    logs, runcmds, filegets, open_notes, comments, sis, details, imported, listdirs, fileinfos, regkeys = [0]*11
+    if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count, define_count = [0]*11
     ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = [0]*7
     patt_err, if_err, for_err, body_err, table_err = ([] for i in range(5))
     lines, mod_line = ([] for i in range(2)) 
@@ -171,13 +171,28 @@ with open(sys.argv[1]) as tpl_file:
     config_var, defins_var, ob_line = [""]*3
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'size', 'number', 'none' ]
+    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'size', 'number', 'xpath', 'none', 'raw' ]
 
     for line in tpl_file:
         lines.append(line.strip())
         line_num += 1
         fwd = True
 
+    	# Dev notes evaluation
+        if re.match("^\s*[\"\'][\"\'][\"\']", line):
+            if re.match("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']", line):
+                ignore_text = False
+            if open_notes == 0:
+                ignore_text = True
+                open_notes += 1
+                continue
+            else:
+                open_notes -= 1
+                ignore_text = False
+		
+        if ignore_text:
+            continue
+		
         if not ignore_text:
 
             # Module Evaluation
@@ -201,6 +216,8 @@ with open(sys.argv[1]) as tpl_file:
             # Table evaluations
             table = re.search("^\s*table\s+\w+\s+\d+\.\d", line)
             if table:
+                tab_var = re.search("^\s*table\s+(\w+)\s+\d+\.\d", line).group(1)
+                varlist.append(tab_var)
                 table_count, table_eval = open_match(table_count, table_eval)
 
             end_table = re.search("^\s*end\stable;", line)
@@ -225,7 +242,9 @@ with open(sys.argv[1]) as tpl_file:
             if definitions:
                 defins = True
                 defins_eval += 1
-                defins_var = re.match("^\s*definitions\s+(\w+)\s+\d+\.\d", line)
+                defins_var = re.match("^\s*definitions\s+(\w+)\s+\d+\.\d", line).group(1)
+                if defins_var:
+                    varlist.append(defins_var)
                 tpl_parsing = True
 
             end_defins = re.search("^\s*end\sdefinitions;", line)
@@ -236,18 +255,22 @@ with open(sys.argv[1]) as tpl_file:
 
             # Definition statements
             if defins:
-                print line
                 define = line
-                print define
                 define_var = re.search("^\s*define\s+(\w+)\(", define)
-                def_vars = re.search("\((.*)\)", define)
-                def_returns = re.search("->\s*(.*)\s*$", define)
                 if define_var:
-                    var_split = def_vars.split(",")
-                    return_split = def_returns.split(",")
-                    split_vars = var_split + return_split
-                    for splits in split_vars:
-                        var_list.append(splits)
+                    define_count += 1
+                    def_vars = re.search("\((.*)\)", define)
+                    def_returns = re.search("->\s*(.*)\s*$", define)
+                    if def_vars:
+                        split_def = str(def_vars.group(1)).split(',')
+                        for split_var in split_def:
+                            var = str.strip(split_var)
+                            varlist.append(var)
+                    if def_returns:
+                        split_return = str(def_returns.group(1)).split(',')
+                        for split_var in split_return:
+                            var = str.strip(split_var)
+                            varlist.append(var)
 
             # Count of logs
             if re.match("\s*log\.\w+\(", line):
@@ -264,7 +287,19 @@ with open(sys.argv[1]) as tpl_file:
             # Count of filegets
             if re.search("\s*discovery\.fileGet\(", line):
                 filegets += 1
+            
+            # Count of listdirs
+            if re.search("\s*discovery\.listDirectory\(", line):
+                listdirs += 1
+            
+            # Count of file infos
+            if re.search("\s*discovery\.fileInfo\(", line):
+                fileinfos += 1
 
+            # Count of registry key lookups
+            if re.search("\s*discovery\.registryKey\(", line):
+                regkeys += 1
+                
             # Count of SIs
             if re.search("\s*model\.SoftwareInstance\(", line):
                 sis += 1
@@ -339,7 +374,7 @@ with open(sys.argv[1]) as tpl_file:
                         pass
                     else:
                         unterminated_count += 1
-                        unterminated.append(str(line_num) + ": " + str.strip(ob_line))
+                        unterminated.append(str(line_num) + ": " + str.strip(line))
                         open_bracket = False
 
             # Pattern evaluation
@@ -348,21 +383,6 @@ with open(sys.argv[1]) as tpl_file:
 
         # If inside pattern
         if patt_parse:
-
-            # Dev notes evaluation
-            if re.match("^\s*[\"\'][\"\'][\"\']", line):
-                if re.match("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']", line):
-                    ignore_text = False
-                if open_notes == 0:
-                    ignore_text = True
-                    open_notes += 1
-                    continue
-                else:
-                    open_notes -= 1
-                    ignore_text = False
-
-            if ignore_text:
-                continue
 
             # Overview evaluation
             if re.match("^\s*overview\s*$", line):
@@ -439,6 +459,8 @@ with open(sys.argv[1]) as tpl_file:
                 var = re.search("(\S+)\s*:=", line).group(1)
                 if ":=" in var:
                     var = re.search("(\S+)\s*:=", var).group(1)
+                if "." in var:
+                    var = re.search("(\w+)\.", var).group(1)
                 if "(" in var:
                     pass
                 elif "[" in var:
@@ -523,8 +545,9 @@ with open(sys.argv[1]) as tpl_file:
                 if equals:
                     assigned.append(equals.group(1))
 
-                not_in = re.search("not\s*in\s*(\w+)", line)
+                not_in = re.search("not\s+in\s+(\w+)", line)
                 if not_in:
+                    print line
                     assigned.append(not_in.group(1))
 
             for var in assigned:
@@ -542,6 +565,7 @@ with open(sys.argv[1]) as tpl_file:
                     elif var == config_var :
                         pass
                     else:
+                        print line
                         initlist.append(str(line_num) + ": " + str(var))
             assigned = []
 
@@ -698,8 +722,12 @@ print (" Number of logging statements:         " + str(logs))
 print (" Number of comment lines:              " + str(comments))
 print (" Number of runCommands:                " + str(runcmds))
 print (" Number of fileGets:                   " + str(filegets))
+print (" Number of listDirectorys:             " + str(listdirs))
+print (" Number of fileInfos:                  " + str(fileinfos))
+print (" Number of registryKeys:               " + str(regkeys))
 varlist = uniq(varlist)
 print (" Number of variable assignments:       " + str(len(varlist)))
+print (" Number of definition blocks:          " + str(define_count))
 print (" Number of SI types declared:          " + str(sis))
 print (" Number of Detail types declared:      " + str(details))
 print (" Number of imported modules:           " + str(imported))
@@ -719,7 +747,10 @@ if (table_err or rev_table_err):
 else:
     print (" Number of tables declared:            " +str(table_count))
 
-#print "\n" + str(varlist)
+# Debugging only
+#for var in varlist:
+#    print var
+
 if initlist:
     print "\n *Uninitialised variables found:"
     for uvar in initlist:
