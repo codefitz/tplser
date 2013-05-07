@@ -12,11 +12,13 @@ Code is stil alpha - parsing works, but it won't catch everything, you may still
 
 ## Usage
 
-To run:
+To run (Linux):
 
     $ ./tplser.py file.tpl
 
 ## Updates
+
+### Alpha
 
 0.06 - Added fileInfo, listDirectory, registryKey, definitions to summary. Now evaluates list of definition variables correctly.<br>
 0.05 - Added exception handling for declarations (ignore variables for now). Added more secion header identifaction. Started on syntax recognition for variables.<br>
@@ -29,7 +31,7 @@ To run:
 * IF evaluation parsing
 * FOR loop parsing
 * Summary (counts of statements)
-* Checks for unitialised variables
+* Checks for itialised variables
 * Identifies and checks for integrity of section headers (required/missing declarations)
 * Rudimentary file handling
 
@@ -38,11 +40,13 @@ To run:
 * Section headers: simple identities, business application instances
 * Individual statement syntax: typos, keywords, search, line declarations (e.g. regex extracts)
 * Code clean-up and OO optimisation
+* Uninitialised variable warnings
 
 ### Nice To Have and Feature Requests:
 
 * TPL versioning
 * TPL Best practice suggestions
+* Check imported tpl syntax (external tpl)
 
 ## Licensing
 
