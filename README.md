@@ -2,7 +2,7 @@
 
 ## Version
 
-0.05 (alpha)
+0.06 (alpha)
 
 ## Description
 
@@ -18,6 +18,7 @@ To run:
 
 ## Updates
 
+0.06 - Added fileInfo, listDirectory, registryKey, definitions to summary. Now evaluates list of definition variables correctly.<br>
 0.05 - Added exception handling for declarations (ignore variables for now). Added more secion header identifaction. Started on syntax recognition for variables.<br>
 0.04 - Committed to GitHub.
 
