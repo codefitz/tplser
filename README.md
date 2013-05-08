@@ -2,7 +2,7 @@
 
 ## Version
 
-0.06 (alpha)
+0.07 (alpha)
 
 ## Description
 
@@ -20,6 +20,7 @@ To run (Linux):
 
 ### Alpha
 
+0.07 - Added warnings for uninitialised variables (inside of if block) - mostly working<br>
 0.06 - Added fileInfo, listDirectory, registryKey, definitions to summary. Now evaluates list of definition variables correctly.<br>
 0.05 - Added exception handling for declarations (ignore variables for now). Added more secion header identifaction. Started on syntax recognition for variables.<br>
 0.04 - Committed to GitHub.
@@ -34,13 +35,13 @@ To run (Linux):
 * Checks for itialised variables
 * Identifies and checks for integrity of section headers (required/missing declarations)
 * Rudimentary file handling
+* Uninitialised variable warnings (partial)
 
 ### Doesn't Do Yet:
 
 * Section headers: simple identities, business application instances
 * Individual statement syntax: typos, keywords, search, line declarations (e.g. regex extracts)
 * Code clean-up and OO optimisation
-* Uninitialised variable warnings
 
 ### Nice To Have and Feature Requests:
 
