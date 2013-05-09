@@ -342,15 +342,7 @@ with open(sys.argv[1]) as tpl_file:
 
                 var_term = re.search(":=.*;", line)
                 if not var_term:
-                    if re.search("(?<=\().*$", line):
-                        open_brac = line.count('(')
-                        close_brac = line.count(')')
-                        if open_brac > close_brac:
-                            open_bracket = True
-                            ob_line_num = line_num
-                            ob_line = line
-                            pass
-                    elif re.search("\((//.*)?$", line):
+                    if re.search("\((//.*)?$", line):
                         open_bracket = True
                         ob_line_num = line_num
                         ob_line = line
@@ -375,6 +367,14 @@ with open(sys.argv[1]) as tpl_file:
                         ob_line_num = line_num
                         ob_line = line
                         pass
+                    elif re.search("(?<=\().*$", line):
+                        open_brac = line.count('(')
+                        close_brac = line.count(')')
+                        if open_brac > close_brac:
+                            open_bracket = True
+                            ob_line_num = line_num
+                            ob_line = line
+                            pass
                     
                     if not open_bracket:
                         unterminated_count += 1
@@ -474,7 +474,11 @@ with open(sys.argv[1]) as tpl_file:
                     pass
                 else:
                     if (if_eval > 0):
-                        warn_eval = if_eval
+                        if if_eval > warn_eval:
+                            warn_eval = (if_eval - 1)
+                        else:
+                            warn_eval = if_eval
+
                         if_block = if_count
                         warn = if_block, var
                         warn_list.append(warn)
@@ -582,17 +586,17 @@ with open(sys.argv[1]) as tpl_file:
                         initlist.append(str(line_num) + ": " + str(var))
                 for wvar in warn_list:
                     if var in wvar:
-                        #print "=== WARN: Var uninitialised at top level ==="
-                        #print line
-                        #print var
-                        #print ("if count = " + str(if_count))
-                        #print ("endif count = " + str(endif_count))
-                        #print ("Found in line: " + str(var))
-                        if if_block not in wvar:
-                            #print ("current if block = " +str(if_block))
-                            #print ("warn if block = " +str(wvar[0]))
+                        if if_eval == 0:
                             var_warn.append(str(line_num) + ": " + str(var))
+                        if var in wvar:
+                            if (if_eval - warn_eval == 1):
+                                pass
+                            elif (if_eval == warn_eval):
+                                pass
+                            elif if_block not in wvar:
+                                var_warn.append(str(line_num) + ": " + str(var))
 
+            warn_eval = if_eval
             assigned = []
 
     ###################################################
