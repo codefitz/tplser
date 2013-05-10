@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.07 (alpha)
+# Version 0.08 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -169,6 +169,7 @@ with open(sys.argv[1]) as tpl_file:
     missing_ov, missing_endov, missing_tags = ([] for i in range(3))
     ov_tags, trig_on, ignore_text, constants, defins, open_bracket, inside = [False]*7
     config_var, defins_var, ob_line = [""]*3
+    importing, end_imports = [False]*2
 
     # For storing custom variables declared in pattern, predefined keywords added here:
     varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'size', 'number', 'xpath', 'none', 'raw' ]
@@ -208,10 +209,27 @@ with open(sys.argv[1]) as tpl_file:
                 meta_eval -= 1
 
             # Imports
-            importing = re.search("^\s*from\s+\S+\s+import\s+(\w+)", line)
-            if importing:
-                imports.append(importing.group(1))
+            import_dec = re.search("^\s*from\s+\S+\s+import\s+(\w+)", line)
+            if import_dec:
+                importing = True
+                end_imports = False
                 imported += 1
+                if "," in line:
+                    import_vars = re.findall("(\w+)\s+\d+\.\d", line)
+                    for var in import_vars:
+                        imports.append(var)
+                if ";" in line:
+                    imports.append(import_dec.group(1))
+                    importing = False
+                    end_imports = True
+
+            if importing and not end_imports:
+                import_vars = re.findall("(\w+)\s+\d+\.\d", line)
+                for var in import_vars:
+                    imports.append(var)
+            if ";" in line:
+                importing = False
+                end_imports = True
 
             # Table evaluations
             table = re.search("^\s*table\s+\w+\s+\d+\.\d", line)
@@ -492,8 +510,10 @@ with open(sys.argv[1]) as tpl_file:
             
             if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+),", line):
                 cond = re.search("\((\S+),", line).group(1)
-                if "." in cond:
-                    assigned.append(re.search("(\w+)\.", cond).group(1))
+                if "[" in cond:
+                    assigned.append(re.search("(\S+)\[", cond).group(1))
+                elif "." in cond:
+                    assigned.append(re.search("(\S+)\.", cond).group(1))
                 else:
                     assigned.append(cond)
 
@@ -556,9 +576,9 @@ with open(sys.argv[1]) as tpl_file:
                 if or_or:
                     assigned.append(or_or.group(2))
 
-                and_and = re.search("\s+and\s+(\w+)", line)
+                and_and = re.search("\s+and\s+(not\s+)?(\w+)", line)
                 if and_and:
-                    assigned.append(and_and.group(1))
+                    assigned.append(and_and.group(2))
 
                 equals = re.search("=\s*(\w+)", line)
                 if equals:
