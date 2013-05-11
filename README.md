@@ -15,7 +15,7 @@ Code is still alpha so...
 ```
     if true then
         var := true;
-    elif
+    else
         var := false;
     end if;
     
@@ -40,7 +40,7 @@ $ python tplser.py file.tpl
 
 ### Alpha
 
-0.08 - Fixed imports on multiple lines, improved uninitialised variable matching.
+0.08 - Fixed imports on multiple lines, improved uninitialised variable matching.<br>
 0.07 - Added warnings for uninitialised variables (inside of if block)<br>
 0.06 - Added fileInfo, listDirectory, registryKey, definitions to summary. Now evaluates list of definition variables correctly.<br>
 0.05 - Added exception handling for declarations (ignore variables for now). Added more secion header identification. Started on syntax recognition for variables.<br>
