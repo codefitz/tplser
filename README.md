@@ -22,7 +22,7 @@ Code is still alpha so...
     something := var;
 ```
 
-Even though `something` will still be assigned `var`, ADDM will not warn you(?), but the parser will - just in case. It's not a bug and so will not be treated as something to fix right now.
+Even though `something` will still be assigned `var`, ADDM will not warn you, but the parser will - this is a 'just in case'. It's not a bug and so will not be treated as something to fix right now.
 
 ---
 
@@ -40,6 +40,7 @@ $ python tplser.py file.tpl
 
 ### Alpha
 
+0.09 - Fixed issue where "notes" field on one line throws out section evaluations. Added syntax check for trigger statement.<br>
 0.08 - Fixed imports on multiple lines, improved uninitialised variable matching.<br>
 0.07 - Added warnings for uninitialised variables (inside of if block)<br>
 0.06 - Added fileInfo, listDirectory, registryKey, definitions to summary. Now evaluates list of definition variables correctly.<br>
@@ -57,19 +58,26 @@ $ python tplser.py file.tpl
 * Identifies and checks for integrity of section headers (required/missing declarations)
 * Rudimentary file handling
 * Uninitialised variable warnings (if blocks)
+* Trigger syntax
 
 ### Getting to Work:
 
 * Section headers: simple identities, business application instances
-* Individual statement syntax: typos, keywords, search, line declarations (e.g. regex extracts)
-* Code clean-up and OO optimisation
+* Syntax: typo catching
+* keyword checking
+* table syntax
+* discovery function syntax
+* search syntax
 * Uninitialised variable warnings (for blocks)
+* Code clean-up and OO optimisation
 
 ### Nice To Have:
 
 * TPL versioning
 * TPL Best practice suggestions
 * Check imported tpl syntax (external tpl)
+* Handle packages with multiple tpl files
+* GUI
 
 ## Licensing
 

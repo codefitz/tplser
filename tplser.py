@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.08 (alpha)
+# Version 0.09 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -165,14 +165,14 @@ with open(sys.argv[1]) as tpl_file:
     lines, mod_line = ([] for i in range(2))
     ov_pattern, trig_pattern = ([] for i in range(2))
     missing_trig, missing_endtrig, missing_trigon = ([] for i in range(3))
-    has_trigger, has_ov, initlist, empties, assigned, imports, unterminated, var_warn, warn_list, top_level = ([] for i in range(10))
+    has_trigger, has_ov, initlist, empties, assigned, imports, unterminated, var_warn, warn_list, top_level, syntax_errs = ([] for i in range(11))
     missing_ov, missing_endov, missing_tags = ([] for i in range(3))
     ov_tags, trig_on, ignore_text, constants, defins, open_bracket, inside = [False]*7
-    config_var, defins_var, ob_line = [""]*3
-    importing, end_imports = [False]*2
+    config_var, defins_var, ob_line, trig_line = [""]*4
+    importing, end_imports, trigger = [False]*3
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'size', 'number', 'xpath', 'none', 'raw' ]
+    varlist = [ 'text', 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery' ]
 
     for line in tpl_file:
         lines.append(line.strip())
@@ -181,16 +181,16 @@ with open(sys.argv[1]) as tpl_file:
 
 		# Dev notes evaluation
         if re.match("^\s*[\"\'][\"\'][\"\']", line):
-            if re.match("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']", line):
+            if open_notes > 0:
                 ignore_text = False
-            if open_notes == 0:
+                open_notes -= 1
+            else:
                 ignore_text = True
                 open_notes += 1
-                continue
-            else:
-                open_notes -= 1
+            if re.search("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']", line):
                 ignore_text = False
-		
+                open_notes -= 1
+
         if ignore_text:
             continue
 		
@@ -352,6 +352,20 @@ with open(sys.argv[1]) as tpl_file:
                     print "Syntax err: "
                     print (str(line_num) + ": " +str.strip(line))
 
+            trig_complete = False
+
+            if trig_eval > 0:
+                trig_ln = line_num
+                if not ";" in trig_line:
+                    trig_line += " " + str.strip(line)
+                else:
+                    trig_complete = True
+
+            if trig_complete:
+                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s+[\"\']", trig_line)
+                if not trig_statement:
+                    syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
+
             var = re.search(":=", line)
 
             if var:
@@ -393,6 +407,18 @@ with open(sys.argv[1]) as tpl_file:
                             ob_line_num = line_num
                             ob_line = line
                             pass
+                    elif re.search("(?<=\[).*$", line):
+                        open_brac = line.count('[')
+                        close_brac = line.count(']')
+                        if open_brac > close_brac:
+                            open_bracket = True
+                            ob_line_num = line_num
+                            ob_line = line
+                            pass
+                        elif re.search("\]\s*(//.*)?$", line):
+                            open_bracket = True
+                            ob_line_num = line_num
+                            ob_line = line
                     
                     if not open_bracket:
                         unterminated_count += 1
@@ -508,8 +534,13 @@ with open(sys.argv[1]) as tpl_file:
 
             # Variables utilised
             
-            if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+),", line):
-                cond = re.search("\((\S+),", line).group(1)
+            if "//" in line:
+                line_s = line.split("//")[0]
+            else:
+                line_s = line
+            
+            if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+),", line_s):
+                cond = re.search("\((\S+),", line_s).group(1)
                 if "[" in cond:
                     assigned.append(re.search("(\S+)\[", cond).group(1))
                 elif "." in cond:
@@ -517,74 +548,87 @@ with open(sys.argv[1]) as tpl_file:
                 else:
                     assigned.append(cond)
 
-                subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
+                subs = re.search("\(\S+\s*,\s*(\w+)\);", line_s)
                 if subs:
                     assigned.append(subs.group(1))
 
-            if re.search("%\w+%", line):
-                assigned.append(re.search("%(\w+)%", line).group(1))
+            if re.search("%\w+%", line_s):
+                assigned.append(re.search("%(\w+)%", line_s).group(1))
 
-            if re.search("^\s*model\.\w+\(\w+\);", line):
-                assigned.append(re.search("^\s*model\.\w+\((\w+)\);", line).group(1))
+            if re.search("^\s*model\.\w+\(\w+\);", line_s):
+                assigned.append(re.search("^\s*model\.\w+\((\w+)\);", line_s).group(1))
 
-            if re.search("^\s*list\.", line):
-                assigned.append(re.search("\((\S+),", line).group(1))
-                subs = re.search("\(\S+\s*,\s*(\w+)\);", line)
+            if re.search("^\s*list\.", line_s):
+            
+                var = re.search("\(\s*(\S+),", line_s).group(1)
+                if "[" in var:
+                    assigned.append(re.search("(\w+)\[", line_s).group(1))
+                else:
+                    assigned.append(var)
+                    
+                subs = re.search("\(\S+\s*,\s*(\w+)\);", line_s)
                 if subs:
                     assigned.append(subs.group(1))
 
-            if re.search(":=\s*(\w+)\+?.*[;,]", line):
-                var = re.search(":=\s*(\w+)\+?.*[;,]", line).group(1)
+            if re.search(":=\s*(\w+)\+?.*[;,]", line_s):
+                var = re.search(":=\s*(\w+)\+?.*[;,]", line_s).group(1)
                 if var == defins_var:
                     pass
                 else:
-                    assigned.append(re.search(":=\s*(\w+)\+?.*[;,]", line).group(1))
+                    assigned.append(re.search(":=\s*(\w+)\+?.*[;,]", line_s).group(1))
 
-            if re.search("\.(result|content)", line):
-                assigned.append(re.search("(\w+)\.(result|content)", line).group(1))
+            if re.search("\.(result|content)", line_s):
+                assigned.append(re.search("(\w+)\.(result|content)", line_s).group(1))
 
-            if re.search("^\s*for\s*\S+\s*in", line):
-                cond = re.search("^\s*for\s*\S+\s*in\s*(\S+)", line).group(1)
+            if re.search("^\s*for\s*\S+\s+in\s+\w+", line_s):
+                cond = re.search("^\s*for\s*\S+\s*in\s*(\w+)", line_s).group(1)
                 if "(" in cond:
                     assigned.append(re.search("\((\S+),", cond).group(1))
                 elif "." in cond:
                     assigned.append(re.search("(\w+)\.", cond).group(1))
-                    assigned.append(re.search("\.(\w+)", cond).group(1))
+                    #assigned.append(re.search("\.(\w+)", cond).group(1))
+                elif "[" in cond:
+                    assigned.append(re.search("(\w+)\[", cond).group(1))
+                    assigned.append(re.search("\[(\w+)", cond).group(1))
                 else:
                     assigned.append(cond)
 
-            if re.search("^\s*if\s+(not\s+)?", line):
-                if re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", line):
-                    cond = re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", line).group(3)
+            if re.search("^\s*if\s+(not\s+)?", line_s):
+                if re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", line_s):
+                    cond = re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", line_s).group(3)
                     if "." in cond:
                         assigned.append(re.search("(\w+)\.", cond).group(1))
                     elif "[" in cond:
                         assigned.append(re.search("(\w+)\[", cond).group(1))
                         assigned.append(re.search("\[(\w+)", cond).group(1))
+                    elif cond == "not":
+                        if re.search("^\s*if\s*\(\s*not\s*\(\s*(\w+)", line_s):
+                            cond = re.search("^\s*if\s*\(\s*not\s*\(\s*(\w+)", line_s).group(1)
+                            assigned.append(cond)
                     else:
                         assigned.append(cond)
 
-                has_substring = re.search("has\s*substring\s*(\w+)", line)
+                has_substring = re.search("has\s*substring\s*(\w+)", line_s)
                 if has_substring:
                     assigned.append(has_substring.group(1))
 
-                matches_regex = re.search("matches\s+regex\s*(\w+)", line)
+                matches_regex = re.search("matches\s+regex\s*(\w+)", line_s)
                 if matches_regex:
                     assigned.append(matches_regex.group(1))
 
-                or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", line)
+                or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", line_s)
                 if or_or:
                     assigned.append(or_or.group(2))
 
-                and_and = re.search("\s+and\s+(not\s+)?(\w+)", line)
+                and_and = re.search("\s+and\s+(not\s+)?(\w+)", line_s)
                 if and_and:
                     assigned.append(and_and.group(2))
 
-                equals = re.search("=\s*(\w+)", line)
+                equals = re.search("=\s*(\w+)", line_s)
                 if equals:
                     assigned.append(equals.group(1))
 
-                not_in = re.search("not\s+in\s+(\w+)", line)
+                not_in = re.search("not\s+in\s+(\w+)", line_s)
                 if not_in:
                     assigned.append(not_in.group(1))
 
@@ -814,8 +858,13 @@ if var_warn:
     print "\r"
 
 if unterminated:
-    print "\n *Syntax error in lines found:"
+    print "\n *Syntax error in line(s) found:"
     for tvar in unterminated:
         print ("    line " + str(tvar))
+
+if syntax_errs:
+    print "\n *Syntax error in line(s) found:"
+    for svar in syntax_errs:
+        print ("    line " + str(svar))
     
 print "\n"
