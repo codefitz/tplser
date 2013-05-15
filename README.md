@@ -2,7 +2,7 @@
 
 ## Version
 
-0.08 (alpha)
+0.10 (alpha)
 
 ## Description
 
@@ -40,6 +40,7 @@ $ python tplser.py file.tpl
 
 ### Alpha
 
+0.10 - Improved matching variables inside brackets, fixed parsing of 'end if;' statement where there is whitespace between 'end if' and ';'. Added regex parsing for 'text' functions.<br>
 0.09 - Fixed issue where "notes" field on one line throws out section evaluations. Added syntax check for trigger statement.<br>
 0.08 - Fixed imports on multiple lines, improved uninitialised variable matching.<br>
 0.07 - Added warnings for uninitialised variables (inside of if block)<br>
@@ -70,6 +71,7 @@ $ python tplser.py file.tpl
 * search syntax
 * Uninitialised variable warnings (for blocks)
 * Code clean-up and OO optimisation
+* CMDB cdm patterns
 
 ### Nice To Have:
 
