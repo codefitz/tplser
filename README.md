@@ -42,7 +42,7 @@ $ python tplser.py file.tpl
 
 | Release | Version | Description |
 | --- | --- | --- |
-| Alpha | 0.11 | Added support for older versions of python for args check.<br>Improved import parsing code. |
+| Alpha | 0.11 | Added support for older versions of python for args check.<br>Improved import parsing code.<br>Small improvements to syntax checking. |
 | Alpha | 0.10 | Improved matching variables inside brackets.<br>Fixed parsing of `end if;` statement where there is whitespace between `end if` and `;`.<br>Added regex parsing for `text` functions. |
 | Alpha | 0.09 | Fixed issue where "notes" field on one line throws out section evaluations.<br>Added syntax check for trigger statement. |
 | Alpha | 0.08 | Fixed imports on multiple lines, improved uninitialised variable matching. |

@@ -359,72 +359,11 @@ with open(sys.argv[1]) as tpl_file:
                 details += 1
 
             # Variable initialisations
-            # Variable assignment streamlined evaluation
-            var_assignment = False
+            open_assignment = False
             
             if ":=" in line:
-                assign_eval = True
-                var_ln = line_num
-                if not ";" in var_line:
-                    print var_line
-                    var_line += " " + str.strip(line)
-                else:
-                    var_assignment = True
-                    assign_eval = False
-        
-            if var_assignment:
-                assigner = var_line.count(':=')
-                if assigner > 1:
-                    print ("line " + str(var_ln) + str(var_line))
-            
-            close_var = re.search("\);$", line)
-            if not close_var:
-                close_var = re.search("\];$", line)
-
-            if close_var:
-                if open_bracket:
-                    open_bracket = False
-                elif re.search(":=", line):
-                    pass
-                elif re.search("^\s*log\.", line):
-                    pass
-                elif re.search("^\s*list\.", line):
-                    pass
-                elif re.search("^\s*xpath\.", line):
-                    pass
-                elif re.search("^\s*model\.", line):
-                    pass
-                elif re.search("^\s*inference\.", line):
-                    pass
-                elif re.compile("^\s*%s\." %defins_var):
-                    pass
-                else:
-                    print "Syntax err: "
-                    print (str(line_num) + ": " + str.strip(line))
-
-            trig_complete = False
-
-            if trig_eval > 0:
-                trig_ln = line_num
-                if not ";" in trig_line:
-                    trig_line += " " + str.strip(line)
-                else:
-                    trig_complete = True
-
-            if trig_complete:
-                if "created" in trig_line or "confirmed" in trig_line:
-                    trig_line = trig_line.replace("created", "")
-                    trig_line = trig_line.replace("confirmed", "")
-                    trig_line = trig_line.replace(",", "")
-
-                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s*[\"\']", trig_line)
-
-                if not trig_statement:
-                    syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
-
-            var = re.search(":=", line)
-
-            if var:
+                open_assignment = True
+                
                 if open_bracket:
                     open_bracket = False
 
@@ -485,6 +424,58 @@ with open(sys.argv[1]) as tpl_file:
                     if not open_bracket:
                         unterminated_count += 1
                         unterminated.append(str(line_num) + ": " + str.strip(line))
+
+            if open_assignment and not ";" in line:
+                var_line += " " + str.strip(line)
+                var_ln = line_num
+                var_declared = False
+            else:
+                open_assignment = False
+                var_line += line
+                var_declared = True
+        
+            if var_declared:
+                assigner = var_line.count(':=')
+                
+                # Check to see if it belongs to a function, multiple assigners are expected
+                if assigner > 1:
+                    if re.search("^\s*log\.", var_line):
+                        pass
+                    elif re.search("^\s*list\.", var_line):
+                        pass
+                    elif re.search("^\s*xpath\.", var_line):
+                        pass
+                    elif re.search("^\s*model\.", var_line):
+                        pass
+                    elif re.search("^\s*inference\.", var_line):
+                        pass
+                    elif re.compile("^\s*%s\." %defins_var):
+                        pass
+                    else:
+                        syntax_errs.append(str(var_ln) + ": " + str.strip(var_line))
+
+                var_line = ""
+                var_declared = False
+                    
+            trig_complete = False
+
+            if trig_eval > 0:
+                trig_ln = line_num
+                if not ";" in trig_line:
+                    trig_line += " " + str.strip(line)
+                else:
+                    trig_complete = True
+
+            if trig_complete:
+                if "created" in trig_line or "confirmed" in trig_line:
+                    trig_line = trig_line.replace("created", "")
+                    trig_line = trig_line.replace("confirmed", "")
+                    trig_line = trig_line.replace(",", "")
+
+                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s*[\"\']", trig_line)
+
+                if not trig_statement:
+                    syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
 
             # Pattern evaluation
             pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern_parse(
