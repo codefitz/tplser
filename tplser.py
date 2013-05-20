@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.11 (alpha)
+# Version 0.1.1 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -181,7 +181,7 @@ with open(sys.argv[1]) as tpl_file:
     ##########################
 
     module_num, endpattern_num, pattern_num, line_num, body_num, endbody_num, if_block = [0]*7
-    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval, warn_eval = [0]*11
+    patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval, warn_count = [0]*11
     logs, runcmds, filegets, open_notes, comments, sis, details, imported, listdirs, fileinfos, regkeys = [0]*11
     if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count, define_count = [0]*11
     ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = [0]*7
@@ -197,7 +197,7 @@ with open(sys.argv[1]) as tpl_file:
     assign_eval, var_warning = [False]*2
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    zero_depth, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery' ] for i in range(2))
+    global_vars, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery', "0" ] for i in range(2))
 
     for full_line in tpl_file:
         lines.append(full_line.strip())
@@ -258,6 +258,7 @@ with open(sys.argv[1]) as tpl_file:
             if import_dec:
                 imported += 1
                 import_ln = line_num
+                import_line = line
                 if not ";" in import_line:
                     import_line += " " + str.strip(line)
                 else:
@@ -267,13 +268,13 @@ with open(sys.argv[1]) as tpl_file:
             if end_imports:
                 import_vars = re.findall("(\w+)\s+\d+\.\d", import_line)
                 for var in import_vars:
-                    imports.append(var)
+                    global_vars.append(var)
 
             # Table evaluations
             table = re.search("^\s*table\s+\w+\s+\d+\.\d", line)
             if table:
                 tab_var = re.search("^\s*table\s+(\w+)\s+\d+\.\d", line).group(1)
-                zero_depth.append(tab_var)
+                global_vars.append(tab_var)
                 table_count, table_eval = open_match(table_count, table_eval)
 
             end_table = re.search("^\s*end\stable;", line)
@@ -286,7 +287,7 @@ with open(sys.argv[1]) as tpl_file:
             if config:
                 config_eval += 1
                 config_var = re.match("^\s*configuration\s+(\w+)\s+\d+\.\d", line).group(1)
-                zero_depth.append(config_var)
+                global_vars.append(config_var)
                 tpl_parsing = True
 
             end_config = re.search("^\s*end\sconfiguration;", line)
@@ -301,7 +302,7 @@ with open(sys.argv[1]) as tpl_file:
                 defins_eval += 1
                 defins_var = re.match("^\s*definitions\s+(\w+)\s+\d+\.\d", line).group(1)
                 if defins_var:
-                    zero_depth.append(defins_var)
+                    global_vars.append(defins_var)
                 tpl_parsing = True
 
             end_defins = re.search("^\s*end\sdefinitions;", line)
@@ -322,12 +323,12 @@ with open(sys.argv[1]) as tpl_file:
                         split_def = str(def_vars.group(1)).split(',')
                         for split_var in split_def:
                             var = str.strip(split_var)
-                            zero_depth.append(var)
+                            global_vars.append(var)
                     if def_returns:
                         split_return = str(def_returns.group(1)).split(',')
                         for split_var in split_return:
                             var = str.strip(split_var)
-                            zero_depth.append(var)
+                            global_vars.append(var)
 
             # Count of logs
             if re.match("\s*log\.\w+\(", line):
@@ -406,7 +407,7 @@ with open(sys.argv[1]) as tpl_file:
 
             # This is just a quick var grab, we're not checking the integrity of constants right now
             if constants and re.search("\S+\s*:=", line):
-                zero_depth.append(re.search("(\S+)\s*:=", line).group(1))
+                global_vars.append(re.search("(\S+)\s*:=", line).group(1))
 
             if re.match("^\s*end\sconstants;", line):
                 constants = False
@@ -418,7 +419,7 @@ with open(sys.argv[1]) as tpl_file:
             # Check for trigger condition
             if re.match("\s*on\s+\S+\s*:=", line):
                 trig_on = True
-                zero_depth.append(re.search("(\S+)\s*:=", line).group(1))
+                global_vars.append(re.search("(\S+)\s*:=", line).group(1))
 
             if re.search("^\s*end\striggers;", line):
                 endtrig_count, trig_eval, missing_trig, trig_err, missing_trigon, trig_on_err = close_requireds(
@@ -458,22 +459,30 @@ with open(sys.argv[1]) as tpl_file:
                 endfor_count, for_eval = close_match(endfor_count, for_eval)
                 for_eval = loop_eval(for_eval, for_err, line_num)
 
-            # Variable initialisations
-            open_assignment = False
+            ############################
+            # Variable initialisations #
+            ############################
             
+            open_assignment = False
+                        
             if ":=" in line:
                 open_assignment = True
                 var_ln = line_num
                 
             if open_assignment and not ";" in line:
-                var_line += " " + str.strip(line)
+                var_line += " $" + str(line_num) + "$ " + str.strip(line)
                 var_declared = False
             else:
                 open_assignment = False
                 var_line += line
                 var_declared = True
-        
+
             if var_declared:
+            
+                # var_line clean
+                if re.match("^\s*\$\d+\$", var_line):
+                    var_line = re.match("^\s*\$\d+\$(.*)", var_line).group(1)
+                
                 assigner = var_line.count(':=')
                 
                 # Check to see if it belongs to a function, multiple assigners are expected
@@ -484,7 +493,7 @@ with open(sys.argv[1]) as tpl_file:
                         pass
                     elif re.search("^\s*xpath\.", var_line):
                         pass
-                    elif re.search(":=\s*model\.", var_line):
+                    elif re.search("(^|:=)\s*model\.", var_line):
                         pass
                     elif re.search("^\s*inference\.", var_line):
                         pass
@@ -495,6 +504,10 @@ with open(sys.argv[1]) as tpl_file:
                 
                 var = ""
                 
+                # For warning variables inside of if evaluations
+                if if_eval == 1 and re.match("^\s*if\s+", line):
+                    if_block += 1
+
                 if re.search("^\s*\S+\s*:=", var_line):
                     var = re.search("^\s*(\S+)\s*:=", var_line).group(1)
                     if "." in var:
@@ -506,32 +519,36 @@ with open(sys.argv[1]) as tpl_file:
 
                 if var:
                     # Check if variable has already been declared, if not then it is a genuine warning
+                
                     if (if_eval > 0):
-                        if if_eval > warn_eval:
-                            warn_eval = (if_eval - 1)
-                        else:
-                            warn_eval = if_eval
-
-                        if_block = if_count
                         warn = if_block, var
                         warn_list.append(warn)
+
                     else:
-                        zero_depth.append(var)
-                        
-                # Variables utilised
+                        global_vars.append(var)
+
+                ######################
+                # Variables utilised #
+                ######################
                 
                 in_brackets = re.search("\((.*)\)", var_line)
                 if in_brackets:
-                    vars = re.findall(":=\s*(\S+),", in_brackets.group(1))
+                    vars = re.findall(":=\s*(\w+),?", in_brackets.group(1))
                     for var in vars:
-                        used.append(var)
+                        if re.search("%\w+%", var):
+                            subs = re.findall("%(\w+)%", var) # multiple substitutions
+                            if subs:
+                                for sub in subs:
+                                    used.append(sub)
+                        else:
+                            used.append(var)
 
-                if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\S+)\b,", var_line):
-                    cond = re.search("\((\S+)\b,", var_line).group(1)
+                if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\w+),", var_line):
+                    cond = re.search("\((\w+),", var_line).group(1)
                     if "[" in cond:
-                        used.append(re.search("(\S+)\[", cond).group(1))
+                        used.append(re.search("(\w+)\[", cond).group(1))
                     if "." in cond:
-                        used.append(re.search("(\S+)\.", cond).group(1))
+                        used.append(re.search("(\w+)\.", cond).group(1))
                     else:
                         used.append(cond)
 
@@ -633,26 +650,42 @@ with open(sys.argv[1]) as tpl_file:
                         used.append(not_in.group(1))
 
                 for var in used:
+                
+                    # Get actual line number
+                    if assigner > 1:
+                        in_brackets = re.search("\((.*)\)", var_line)
+                        if in_brackets:
+                            vars = re.findall(":=\s*(\S+),?", var_line)
+                            for index, value in enumerate(reversed(vars)):
+                                if value == var:
+                                    var_ln = line_num - index
+
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
-                    if var in zero_depth:
-                        pass
-                    else:
-                    
+                    if var not in global_vars:
+
                         if var not in varlist:
-                            initlist.append(str(line_num) + ": " + str(var))
+                            print var
+                            print varlist
+                            initlist.append(str(var_ln) + ": " + str(var))
 
                         # print warn_list
                         for warn in warn_list:
-
                             if var in warn:
-                                print ("line " + str(line_num) + ": " + str(var) + "     -     if_eval = " + str(if_eval) + ", warn_eval = " + str(warn_eval) + ", if_block = " + str(if_block) + ", warn = " + str(warn) + "\n")
-                                if if_block in warn:
-                                    print (str(line_num) + ": " + str(var))
-                                    break
-                                else:
-                                    print ("adding... " + str(line_num) + ": " + str(var))
-                                    var_warn.append(str(line_num) + ": " + str(var))
-                
+                                if if_eval == 0:
+                                    # This is to catch variables declared in an if group, called outside of the evaluation
+                                    
+                                    #print ("line " + str(line_num) + ": " + str(line))
+                                    #print ("warn = " + str(warn) + " if_block = " + str(if_block) + " if_count = " + str(if_count) + " endif_count = " + str(endif_count) + "\n")
+                                    #print ("==========================================")
+                                    
+                                    var_warn.append(str(var_ln) + ": " + str(var))
+                                    
+                                for block in warn:
+                                    # looking at top level if evaluation block
+                                    # This is to handle occurances of variable declared in one if group, and called in another
+                                    if if_block > block:
+                                        var_warn.append(str(var_ln) + ": " + str(var))
+
                 var_line = ""
                 var_declared = False
                 warn_eval = if_eval
@@ -781,7 +814,7 @@ print (" Number of fileGets:                   " + str(filegets))
 print (" Number of listDirectorys:             " + str(listdirs))
 print (" Number of fileInfos:                  " + str(fileinfos))
 print (" Number of registryKeys:               " + str(regkeys))
-varlist += zero_depth
+varlist += global_vars
 varlist = uniq(varlist)
 print (" Number of variable assignments:       " + str(len(varlist)))
 print (" Number of definition blocks:          " + str(define_count))
@@ -808,6 +841,7 @@ if initlist:
     warnings(initlist, "Uninitialised variables found")
 
 if var_warn:
+    var_warn = uniq(var_warn)
     warnings(var_warn, "Warning: Variables in embedded if/for loops MAY be uninitialised")
 
 if syntax_errs:
