@@ -2,7 +2,7 @@
 
 ## Version
 
-0.1.1 (alpha)
+0.1.2 (alpha)
 
 ## Description
 
@@ -42,12 +42,13 @@ $ python tplser.py file.tpl
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected. |
 | Alpha | 0.1.1 | Added support for older versions of python for args check.<br>Improved import parsing code.<br>Small improvements to syntax checking.<br>Improved code for uninitialised variable warning.<br>Added TPL version to summary. |
 | Alpha | 0.1.0 | Improved matching variables inside brackets.<br>Fixed parsing of `end if;` statement where there is whitespace between `end if` and `;`.<br>Added regex parsing for `text` functions. |
 | Alpha | 0.0.9 | Fixed issue where "notes" field on one line throws out section evaluations.<br>Added syntax check for trigger statement. |
 | Alpha | 0.0.8 | Fixed imports on multiple lines, improved uninitialised variable matching. |
 | Alpha | 0.0.7 | Added warnings for uninitialised variables (inside of if block) |
-| Alpha | 0.0.6 | Added fileInfo, listDirectory, registryKey, definitions to summary.</br>Now evaluates list of definition variables correctly. |
+| Alpha | 0.0.6 | Added fileInfo, listDirectory, registryKey, definitions to summary.<br>Now evaluates list of definition variables correctly. |
 | Alpha | 0.0.5 | Added exception handling for declarations (ignore variables for now).<br>Added more secion header identification.<br>Started on syntax recognition for variables. |
 | Alpha | 0.0.4 | Committed to GitHub. |
 

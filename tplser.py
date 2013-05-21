@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.1.1 (alpha)
+# Version 0.1.2 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -442,6 +442,9 @@ with open(sys.argv[1]) as tpl_file:
 
             else:
                 tpl_parsing = False
+                # Reset variables warnings based on if evaluations
+                if_block = 0
+                warn_list = []
 
         # General TPL parsing for Definitions and Body
         if tpl_parsing:
@@ -463,12 +466,18 @@ with open(sys.argv[1]) as tpl_file:
             # Variable initialisations #
             ############################
             
+            # For warning variables inside of if evaluations
+            if if_eval == 1 and re.match("^\s*if\s+", line):
+                if_block += 1
+                #print "if_block " + str(if_block) + ": " + str(line)
+                #print ("pattern: " + str(pattern_name) + ", if_block: " + str(if_block))
+                
             open_assignment = False
+            var_ln = line_num
                         
             if ":=" in line:
                 open_assignment = True
-                var_ln = line_num
-                
+
             if open_assignment and not ";" in line:
                 var_line += " $" + str(line_num) + "$ " + str.strip(line)
                 var_declared = False
@@ -503,10 +512,6 @@ with open(sys.argv[1]) as tpl_file:
                 # Get variables assigned
                 
                 var = ""
-                
-                # For warning variables inside of if evaluations
-                if if_eval == 1 and re.match("^\s*if\s+", line):
-                    if_block += 1
 
                 if re.search("^\s*\S+\s*:=", var_line):
                     var = re.search("^\s*(\S+)\s*:=", var_line).group(1)
@@ -522,6 +527,7 @@ with open(sys.argv[1]) as tpl_file:
                 
                     if (if_eval > 0):
                         warn = if_block, var
+                        #print ("assigning warn var = " + str(warn))
                         warn_list.append(warn)
 
                     else:
@@ -564,9 +570,10 @@ with open(sys.argv[1]) as tpl_file:
 
                 if re.search("^\s*list\.", var_line):
             
-                    var = re.search("\(\s*(\S+),", var_line).group(1)
+                    var = re.search("\(\s*(\S+),?", var_line).group(1)
                     if "[" in var:
-                        used.append(re.search("(\w+)\[", var_line).group(1))
+                        #print var
+                        used.append(re.search("(\w+),?\[", var_line).group(1))
                     else:
                         used.append(var)
                     
@@ -655,35 +662,35 @@ with open(sys.argv[1]) as tpl_file:
                     if assigner > 1:
                         in_brackets = re.search("\((.*)\)", var_line)
                         if in_brackets:
-                            vars = re.findall(":=\s*(\S+),?", var_line)
-                            for index, value in enumerate(reversed(vars)):
-                                if value == var:
-                                    var_ln = line_num - index
+                            get_ln = re.compile("\$(\d+)\$\s+\S+\s*:=\s*%s,?"%var)
+                            if re.search(get_ln, var_line):
+                                var_ln = re.search(get_ln, var_line).group(1)
+                            # vars = re.findall(":=\s*(\S+),?", var_line)
+                            # for index, value in enumerate(reversed(vars)):
+                                # if value == var:
+                                    # var_ln = line_num - index
 
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
                     if var not in global_vars:
 
                         if var not in varlist:
-                            print var
-                            print varlist
                             initlist.append(str(var_ln) + ": " + str(var))
 
                         # print warn_list
                         for warn in warn_list:
                             if var in warn:
+                                
                                 if if_eval == 0:
                                     # This is to catch variables declared in an if group, called outside of the evaluation
-                                    
-                                    #print ("line " + str(line_num) + ": " + str(line))
-                                    #print ("warn = " + str(warn) + " if_block = " + str(if_block) + " if_count = " + str(if_count) + " endif_count = " + str(endif_count) + "\n")
-                                    #print ("==========================================")
-                                    
                                     var_warn.append(str(var_ln) + ": " + str(var))
                                     
                                 for block in warn:
                                     # looking at top level if evaluation block
                                     # This is to handle occurances of variable declared in one if group, and called in another
                                     if if_block > block:
+                                        #print ("var warning: " + str(warn) + ", if_eval = " + str(if_eval) + ", if_block = " + str(if_block))
+                                        #print ("line " + str(var_ln) + ": " + str(line))
+                                        #print ("==========================================")
                                         var_warn.append(str(var_ln) + ": " + str(var))
 
                 var_line = ""
