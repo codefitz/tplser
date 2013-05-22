@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.1.2 (alpha)
+# Version 0.1.3 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -10,6 +10,7 @@
 
 import sys
 import re
+import pdb
 
 pyver = sys.version_info
 
@@ -173,6 +174,8 @@ def print_eval(section, open, close, clause, err, rev_err):
 parsing, rev_parsing, patt_parse, rev_patt_parse, tpl_parsing, fwd = [False] * 6
 pattern_name = ""
 pattern_list = []
+
+pdb.set_trace()
 
 with open(sys.argv[1]) as tpl_file:
 
@@ -479,8 +482,11 @@ with open(sys.argv[1]) as tpl_file:
                 open_assignment = True
 
             if open_assignment and not ";" in line:
-                var_line += " $" + str(line_num) + "$ " + str.strip(line)
-                var_declared = False
+                if re.search("^\s*if.*then\s*$", line):
+                    var_declared = True
+                else:
+                    var_line += " $" + str(line_num) + "$ " + str.strip(line)
+                    var_declared = False
             else:
                 open_assignment = False
                 var_line += line
@@ -493,6 +499,14 @@ with open(sys.argv[1]) as tpl_file:
                     var_line = re.match("^\s*\$\d+\$(.*)", var_line).group(1)
                 
                 assigner = var_line.count(':=')
+                
+                # Getting string between "/'  characters
+                quotes = re.findall("[\"']([^\"']*)[\"']", var_line)
+                
+                if quotes:
+                    for quote in quotes:
+                        if ":=" in quote:
+                            assigner -= 1 # Remove an := chars between quotes
                 
                 # Check to see if it belongs to a function, multiple assigners are expected
                 if assigner > 1:
@@ -512,12 +526,13 @@ with open(sys.argv[1]) as tpl_file:
                 # Get variables assigned
                 
                 var = ""
-
+                #print "line " + str(var_ln) + ": " + str(var_line)
                 if re.search("^\s*\S+\s*:=", var_line):
                     var = re.search("^\s*(\S+)\s*:=", var_line).group(1)
                     if "." in var:
                         var = re.search("^\s*(\w+)\.", var_line).group(1)
                     varlist.append(var)
+                    #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
 
                 if re.search("^\s*for\s*\w+\s*in", var_line):
                     varlist.append(re.search("^\s*for\s*(\w+)\s*in", var_line).group(1))
@@ -569,11 +584,10 @@ with open(sys.argv[1]) as tpl_file:
                     used.append(re.search("^\s*model\.\w+\((\w+)\);", var_line).group(1))
 
                 if re.search("^\s*list\.", var_line):
-            
-                    var = re.search("\(\s*(\S+),?", var_line).group(1)
+                    var = re.search("\(\s*(\w+)?,", var_line).group(1)
                     if "[" in var:
                         #print var
-                        used.append(re.search("(\w+),?\[", var_line).group(1))
+                        used.append(re.search("(\w+)?,\[", var_line).group(1))
                     else:
                         used.append(var)
                     
@@ -655,7 +669,7 @@ with open(sys.argv[1]) as tpl_file:
                     not_in = re.search("not\s+in\s+(\w+)", var_line)
                     if not_in:
                         used.append(not_in.group(1))
-
+                
                 for var in used:
                 
                     # Get actual line number
@@ -670,32 +684,44 @@ with open(sys.argv[1]) as tpl_file:
                                 # if value == var:
                                     # var_ln = line_num - index
 
+                    if re.match("^[0-9]", var):
+                            pass # Variable is a number
+                            
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
-                    if var not in global_vars:
+                    elif var not in global_vars:
 
                         if var not in varlist:
+                            #print ("line " + str(var_ln) + ": " + str(var_line))
+                            #print varlist
+                            #print "======================================"
                             initlist.append(str(var_ln) + ": " + str(var))
 
                         # print warn_list
                         for warn in warn_list:
+                            same_block = False
                             if var in warn:
+                                block_no = warn[0]
                                 
                                 if if_eval == 0:
                                     # This is to catch variables declared in an if group, called outside of the evaluation
                                     var_warn.append(str(var_ln) + ": " + str(var))
-                                    
-                                for block in warn:
-                                    # looking at top level if evaluation block
-                                    # This is to handle occurances of variable declared in one if group, and called in another
-                                    if if_block > block:
-                                        #print ("var warning: " + str(warn) + ", if_eval = " + str(if_eval) + ", if_block = " + str(if_block))
-                                        #print ("line " + str(var_ln) + ": " + str(line))
-                                        #print ("==========================================")
-                                        var_warn.append(str(var_ln) + ": " + str(var))
+                                
+                                #print ("var (" + str(var) + "), block_no (" + str(block_no) + "), if block (" + str(if_block) + ")")
+                                
+                                if (if_block == block_no):
+                                    # Var is in the same block
+                                    same_block = True
+
+                        if not same_block:
+                            if (if_block > block_no):
+                                #print ("var warning: " + str(warn) + ", if_eval = " + str(if_eval) + ", if_block = " + str(if_block) + ", block_no = " + str(block_no))
+                                #print ("line " + str(var_ln) + ": " + str(line))
+                                #print warn_list
+                                #print ("==========================================")
+                                var_warn.append(str(var_ln) + ": " + str(var))
 
                 var_line = ""
                 var_declared = False
-                warn_eval = if_eval
                 used = []
 
     ###################################################
