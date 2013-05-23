@@ -46,7 +46,6 @@ $ python tplser.py file.tpl
 * table syntax
 * discovery function syntax
 * search syntax
-* Uninitialised variable warnings (for blocks)
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
 * Needs function for splitting up of text strings and variable declarations for accidental false positive matches
