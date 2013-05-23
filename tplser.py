@@ -175,7 +175,7 @@ parsing, rev_parsing, patt_parse, rev_patt_parse, tpl_parsing, fwd = [False] * 6
 pattern_name = ""
 pattern_list = []
 
-pdb.set_trace()
+#pdb.set_trace()
 
 with open(sys.argv[1]) as tpl_file:
 
@@ -187,17 +187,20 @@ with open(sys.argv[1]) as tpl_file:
     patt_eval, if_eval, for_eval, ov_eval, trig_eval, body_eval, meta_eval, table_eval, config_eval, defins_eval, warn_count = [0]*11
     logs, runcmds, filegets, open_notes, comments, sis, details, imported, listdirs, fileinfos, regkeys = [0]*11
     if_count, endif_count, for_count, endfor_count, ov_count, endov_count, trig_count, endtrig_count, table_count, unterminated_count, define_count = [0]*11
-    ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count = [0]*7
-    patt_err, if_err, for_err, body_err, table_err = ([] for i in range(5))
+    ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count, sids_err = [0]*8
+    patt_err, if_err, for_err, body_err, table_err, sid_err = ([] for i in range(6))
     lines, mod_line = ([] for i in range(2))
     ov_pattern, trig_pattern = ([] for i in range(2))
     missing_trig, missing_endtrig, missing_trigon = ([] for i in range(3))
-    has_trigger, has_ov, initlist, used, imports, unterminated, var_warn, warn_list, syntax_errs = ([] for i in range(9))
-    missing_ov, missing_endov, missing_tags = ([] for i in range(3))
+    has_trigger, has_ov, initlist, used, imports, unterminated, var_warn, warn_list, for_warn_list, syntax_errs = ([] for i in range(10))
+    missing_ov, missing_endov, missing_tags, missing_sid, missing_sids = ([] for i in range(5))
     ov_tags, trig_on, ignore_text, constants, defins, open_bracket = [False]*6
     config_var, defins_var, ob_line, trig_line, import_line, var_line = [""]*6
     end_imports, trigger = [False]*2
-    assign_eval, var_warning = [False]*2
+    assign_eval, var_warning, else_clause = [False]*3
+    sid_eval, sid_count, endsid_count, sid_found = [0]*4
+    sid_tags = False
+    has_sid = []
 
     # For storing custom variables declared in pattern, predefined keywords added here:
     global_vars, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery', "0" ] for i in range(2))
@@ -364,7 +367,22 @@ with open(sys.argv[1]) as tpl_file:
             # Count of Details
             if re.search("\s*model\.Detail\(", line):
                 details += 1
-                    
+
+            # Count of simple ids
+            if re.match("\s*identify\s+", line):
+                sid_count, sid_eval, has_sid, sid_tags = open_requireds(pattern_name, line, sid_count, sid_eval, has_sid, sid_tags)
+            
+            # Count of simple ids
+            if sid_eval > 0:
+                if "simple_identity;" in line:
+                    pass # guide line
+                elif "->" in line:
+                    sid_found += 1
+
+            if re.search("^\s*end\s*identify;", line):
+                endsid_count, sid_eval, missing_sid, sid_err, missing_sids, sids_err = close_requireds(
+                    pattern_name, line, endsid_count, sid_eval, missing_sid, sid_err, sid_tags, missing_sids, sids_err)
+            
             trig_complete = False
 
             if trig_eval > 0:
@@ -448,6 +466,7 @@ with open(sys.argv[1]) as tpl_file:
                 # Reset variables warnings based on if evaluations
                 if_block = 0
                 warn_list = []
+                else_clause = False
 
         # General TPL parsing for Definitions and Body
         if tpl_parsing:
@@ -474,6 +493,9 @@ with open(sys.argv[1]) as tpl_file:
                 if_block += 1
                 #print "if_block " + str(if_block) + ": " + str(line)
                 #print ("pattern: " + str(pattern_name) + ", if_block: " + str(if_block))
+             
+            if if_eval == 1 and re.match("^\s*else\s*$", line):
+                else_clause = True
                 
             open_assignment = False
             var_ln = line_num
@@ -502,7 +524,6 @@ with open(sys.argv[1]) as tpl_file:
                 
                 # Getting string between "/'  characters
                 quotes = re.findall("[\"']([^\"']*)[\"']", var_line)
-                
                 if quotes:
                     for quote in quotes:
                         if ":=" in quote:
@@ -520,6 +541,8 @@ with open(sys.argv[1]) as tpl_file:
                         pass
                     elif re.search("^\s*inference\.", var_line):
                         pass
+                    elif re.search("no_match\s*:=", var_line):
+                        pass
                     else:
                         syntax_errs.append(str(var_ln) + ": " + str.strip(var_line))
                 
@@ -529,30 +552,36 @@ with open(sys.argv[1]) as tpl_file:
                 #print "line " + str(var_ln) + ": " + str(var_line)
                 if re.search("^\s*\S+\s*:=", var_line):
                     var = re.search("^\s*(\S+)\s*:=", var_line).group(1)
+                    #print ("var = " + str(var) + " (" + str(var_ln) + ")")
                     if "." in var:
-                        var = re.search("^\s*(\w+)\.", var_line).group(1)
+                        var = re.search("^\s*(\S+)\.", var_line).group(1)
                     varlist.append(var)
                     #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
 
                 if re.search("^\s*for\s*\w+\s*in", var_line):
-                    varlist.append(re.search("^\s*for\s*(\w+)\s*in", var_line).group(1))
+                    var = re.search("^\s*for\s*(\w+)\s*in", var_line).group(1)
+                    for_block = True
+                    varlist.append(var)
 
                 if var:
                     # Check if variable has already been declared, if not then it is a genuine warning
                 
-                    if (if_eval > 0):
+                    if (if_eval > 0) and not else_clause and not for_block:
                         warn = if_block, var
-                        #print ("assigning warn var = " + str(warn))
+                        #print ("assigning warn var = " + str(warn) + " (" + str(var_ln) + ")")
                         warn_list.append(warn)
-
+                        for_block = False
                     else:
                         global_vars.append(var)
+                        #print ("assigning global var = " + str(var) + " (" + str(var_ln) + ")")
 
                 ######################
                 # Variables utilised #
                 ######################
                 
                 in_brackets = re.search("\((.*)\)", var_line)
+                
+                # Handle multiple assignments such as in model declarations
                 if in_brackets:
                     vars = re.findall(":=\s*(\w+),?", in_brackets.group(1))
                     for var in vars:
@@ -563,6 +592,20 @@ with open(sys.argv[1]) as tpl_file:
                                     used.append(sub)
                         else:
                             used.append(var)
+                            
+                    # Handle embedded functions
+                    embed_line = re.sub("[\"']([^\"']*)[\"']", "", var_line)
+                    if embed_line:
+                        embeds = embed_line.count('(')
+                        if embeds > 1:
+                            vars = re.findall("\(\s*(\w+),?", embed_line)
+                            for var in vars:
+                                if var == "text":
+                                    pass # text function
+                                elif var == "not":
+                                    pass # not evaluation
+                                else:
+                                    used.append(var)
 
                 if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\w+),", var_line):
                     cond = re.search("\((\w+),", var_line).group(1)
@@ -586,7 +629,6 @@ with open(sys.argv[1]) as tpl_file:
                 if re.search("^\s*list\.", var_line):
                     var = re.search("\(\s*(\w+)?,", var_line).group(1)
                     if "[" in var:
-                        #print var
                         used.append(re.search("(\w+)?,\[", var_line).group(1))
                     else:
                         used.append(var)
@@ -606,8 +648,8 @@ with open(sys.argv[1]) as tpl_file:
                                 used.append(re.search("(\w+)\.", var).group(1))
                             else:
                                 used.append(var)
-                        else:
-                            used.append(re.search(":=\s*text\.\w+\(\s*(\w+)\+?.*[;,]", var_line).group(1))
+                        #else:
+                            #used.append(re.search(":=\s*text\.\w+\(\s*(\w+)\+?.*[;,]", var_line).group(1))
                     else:
                         used.append(re.search(":=\s*(\w+)\+?.*[;,]", var_line).group(1))
 
@@ -623,6 +665,11 @@ with open(sys.argv[1]) as tpl_file:
                     elif "[" in cond:
                         used.append(re.search("(\w+)\[", cond).group(1))
                         used.append(re.search("\[(\w+)", cond).group(1))
+                    elif cond == "text":
+                            #print "line " + str(var_ln) + ": var = " + str(cond)
+                            cond = re.findall("^\s*if\s+text\.\w+\((\w+)", var_line)
+                            for var in cond:
+                                used.append(var)
                     else:
                         used.append(cond)
 
@@ -639,7 +686,10 @@ with open(sys.argv[1]) as tpl_file:
                                 cond = re.search("^\s*if\s*\(\s*not\s*\(\s*(\w+)", var_line).group(1)
                                 used.append(cond)
                         elif cond == "text":
-                            cond = re.search("^\s*if\s+text\.\w+\((\w+)", var_line).group(1)
+                            #print "line " + str(var_ln) + ": var = " + str(cond)
+                            cond = re.findall("^\s*if\s+text\.\w+\((\w+)", var_line)
+                            for var in cond:
+                                used.append(var)
                         else:
                             used.append(cond)
 
@@ -654,10 +704,14 @@ with open(sys.argv[1]) as tpl_file:
                     or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", var_line)
                     if or_or:
                         used.append(or_or.group(2))
-
-                    and_and = re.search("\s+and\s+(not\s+)?(\w+)", var_line)
-                    if and_and:
-                        used.append(and_and.group(2))
+                        
+                    if_quotes = re.sub("[\"']([^\"']*)[\"']", "", var_line)
+                    if if_quotes:
+                        pass
+                    else:
+                        and_and = re.search("\s+and\s+(not\s+)?(\w+)", var_line)
+                        if and_and:
+                            used.append(and_and.group(2))
 
                     equals = re.search("=\s*(\w+)", var_line)
                     if equals and equals.group(1) == "text":
@@ -671,7 +725,7 @@ with open(sys.argv[1]) as tpl_file:
                         used.append(not_in.group(1))
                 
                 for var in used:
-                
+                    #print "var used: " + str(var) + " (" + str(var_line) + ")"
                     # Get actual line number
                     if assigner > 1:
                         in_brackets = re.search("\((.*)\)", var_line)
@@ -685,10 +739,13 @@ with open(sys.argv[1]) as tpl_file:
                                     # var_ln = line_num - index
 
                     if re.match("^[0-9]", var):
-                            pass # Variable is a number
+                        pass # Variable is a number
                             
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
                     elif var not in global_vars:
+                        print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
+                        print global_vars
+                        print "======================================"
 
                         if var not in varlist:
                             #print ("line " + str(var_ln) + ": " + str(var_line))
@@ -701,21 +758,27 @@ with open(sys.argv[1]) as tpl_file:
                             same_block = False
                             if var in warn:
                                 block_no = warn[0]
+                                #print warn
+                                #print ("if_eval (" + str(if_eval) + "), for_eval (" + str(for_eval) + ")")
+                                #print ("line " + str(var_ln) + ": " + str(var_line))
                                 
                                 if if_eval == 0:
                                     # This is to catch variables declared in an if group, called outside of the evaluation
+                                    #print var
+                                    #print "=========================================="
                                     var_warn.append(str(var_ln) + ": " + str(var))
                                 
-                                #print ("var (" + str(var) + "), block_no (" + str(block_no) + "), if block (" + str(if_block) + ")")
-                                
                                 if (if_block == block_no):
+                                    #print ("line " + str(var_ln) + ": " + str(var_line))
                                     # Var is in the same block
+                                    #print ("if_block (" + str(if_block) + ") or for_block (" + str(for_block) + ") = block_no (" + str(block_no) + ")")
                                     same_block = True
 
                         if not same_block:
                             if (if_block > block_no):
-                                #print ("var warning: " + str(warn) + ", if_eval = " + str(if_eval) + ", if_block = " + str(if_block) + ", block_no = " + str(block_no))
-                                #print ("line " + str(var_ln) + ": " + str(line))
+                                #print "Not same block"
+                                #print ("var warning: " + str(warn) + ", if_block = " + str(if_block) + ", for_block = " + str(for_block) + ", block_no = " + str(block_no))
+                                #print ("line " + str(var_ln) + ": " + str(var_line))
                                 #print warn_list
                                 #print ("==========================================")
                                 var_warn.append(str(var_ln) + ": " + str(var))
@@ -853,6 +916,7 @@ print (" Number of variable assignments:       " + str(len(varlist)))
 print (" Number of definition blocks:          " + str(define_count))
 print (" Number of SI types declared:          " + str(sis))
 print (" Number of Detail types declared:      " + str(details))
+print (" Number of Simple Identities:          " + str(sid_found))
 print (" Number of imported modules:           " + str(imported))
 
 if (if_err or rev_if_err):

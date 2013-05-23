@@ -47,8 +47,9 @@ $ python tplser.py file.tpl
 * Checks for initialised variables
 * Identifies and checks for integrity of section headers (required/missing declarations)
 * Rudimentary file handling
-* Uninitialised variable warnings (if blocks)
+* Uninitialised variable warnings
 * Trigger syntax
+* If statement handling of else/elif on uninitialised variables
 
 ### Getting to Work:
 
@@ -61,7 +62,7 @@ $ python tplser.py file.tpl
 * Uninitialised variable warnings (for blocks)
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
-* If statement handling of else/elif on uninitialised variables
+* Needs function for splitting up of text strings and variable declarations for accidental false positive matches
 
 ### Nice To Have:
 
@@ -81,7 +82,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
-| Alpha | 0.1.3 | Added PDB debugging.<br>Fixed further issues with assigned/uninitialised variables.<br>Fixed syntax error matching bugs.<br>Basic string checking added. |
+| Alpha | 0.1.3 | Added PDB debugging.<br>Fixed further issues with assigned/uninitialised variables.<br>Fixed syntax error matching bugs.<br>Basic string checking added.<br>Simple Identities count added to summary. Bug fixes. |
 | Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected. |
 | Alpha | 0.1.1 | Added support for older versions of python for args check.<br>Improved import parsing code.<br>Small improvements to syntax checking.<br>Improved code for uninitialised variable warning.<br>Added TPL version to summary. |
 | Alpha | 0.1.0 | Improved matching variables inside brackets.<br>Fixed parsing of `end if;` statement where there is whitespace between `end if` and `;`.<br>Added regex parsing for `text` functions. |
