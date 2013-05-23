@@ -11,19 +11,6 @@ A TPL pattern language parser for BMC's Atrium Discovery and Dependency Mapping 
 Code is still alpha so...
 - PDB debugging enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
 - Parsing works, but it won't catch everything, you may still be caught out when it comes to uploading to your appliance.
-- Parser treats all variables embedded in if blocks as potential uninitialised variables so you will get a warning for `var` in code like this:
-
-```
-    if true then
-        var := true;
-    else
-        var := false;
-    end if;
-    
-    something := var;
-```
-
-Even though `something` will still be assigned `var`, ADDM will not warn you, but the parser will for now.
 
 ---
 
@@ -83,7 +70,7 @@ Apache 2.0 License - see LICENSE file.
 | Release | Version | Description |
 | --- | --- | --- |
 | Alpha | 0.1.3 | Added PDB debugging.<br>Fixed further issues with assigned/uninitialised variables.<br>Fixed syntax error matching bugs.<br>Basic string checking added.<br>Simple Identities count added to summary. Bug fixes. |
-| Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected. |
+| Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected.<br>Parser handles variables declared after an 'else' statement, meaning no warning. |
 | Alpha | 0.1.1 | Added support for older versions of python for args check.<br>Improved import parsing code.<br>Small improvements to syntax checking.<br>Improved code for uninitialised variable warning.<br>Added TPL version to summary. |
 | Alpha | 0.1.0 | Improved matching variables inside brackets.<br>Fixed parsing of `end if;` statement where there is whitespace between `end if` and `;`.<br>Added regex parsing for `text` functions. |
 | Alpha | 0.0.9 | Fixed issue where "notes" field on one line throws out section evaluations.<br>Added syntax check for trigger statement. |
