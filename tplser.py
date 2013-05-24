@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.1.3 (alpha)
+# Version 0.1.4 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -8,21 +8,21 @@
 # http://github.com/codefitz/tplser
 #
 
-import sys
-import re
+# Local modules
+from tplser import *
+
+# Standard modules
 import pdb
+import re
+import sys
 
 pyver = sys.version_info
-
-def tplfile(ext):
-    if not ext.endswith(".tpl"):
-        raise argparse.ArgumentTypeError("File must be of type *.tpl\n")
-    return ext
 
 if pyver >= (2,7,0):
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('*.tpl', type=tplfile)
+    tpl_file = tplfile.tplfile
+    parser.add_argument('*.tpl', type=tpl_file)
     args = parser.parse_args()
 else:
     if len(sys.argv) < 2:
@@ -30,150 +30,8 @@ else:
 
 print "\nNow parsing " + str(sys.argv[1]) + "...\n"
 
-def eval(eval, section):
-    if (eval < 0):
-        print (" * Missing module " + section + " opening statement!")
-    if (eval > 0):
-        print (" * Missing module end " + section + " statement!")
-
-def missing_warn(section, missing, missing_end, err, end_err, count, pattern_num, pattern_list, has_it):
-    if (missing or missing_end):
-        if err > 0:
-            print(" * Missing " + section + " declaration(s)...")
-            print_patt(missing)
-        if end_err > 0:
-            print(" * Missing closing " + section + " declaration(s)...")
-            print_patt(missing_end)
-    elif (count < pattern_num):
-        print (" * " + section + " section missing!")
-        for pattern in pattern_list:
-            if pattern not in has_it:
-                print ("    Pattern: " + str(pattern))
-
-def warnings(list, warning):
-    print "\n * " + warning + ":"
-    for var in list:
-        print ("    line " + str(var))
-    print "\r"
-
-def uniq(lst):
-    seen = set()
-    seen_add = seen.add
-    return [ x for x in lst if x not in seen and not seen_add(x)]
-
-def loop_eval(eval, err, line):
-    if eval < 0:
-        err.append(line)
-        eval = 0
-    return eval
-
-def print_patt(list):
-    for pattern in list:
-        print ("    " + str(pattern))
-
-def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_num):
-    if re.match("^\s*pattern\s\S+\s\d+\.\d", line):
-        if direction:
-            pname = re.findall("pattern\s(.*\s\d+\.\d)", line)
-            name = pname[0]
-            pattern_list.append(name)
-            print (" Checking pattern... " + name)
-            num += 1
-            eval += 1
-            parse = True
-        else:
-            num += 1
-            eval -= 1
-            eval = loop_eval(eval, err, line_num)
-            parse = False
-    if re.match("^\s*end\spattern;", line):
-        if direction:
-            end_num += 1
-            eval -= 1
-            eval = loop_eval(eval, err, line_num)
-            parse = False 
-        else:
-            num += 1
-            eval += 1
-            parse = True
-    return name, num, end_num, eval, parse, err, pattern_list
-
-def body_parse(direction, line, num, end_num, eval, parse, err, line_num):
-    if re.match("^\s*body\s*$", line):
-        if direction:
-            num += 1
-            eval += 1
-            parse = True
-        else:
-            num += 1
-            eval -= 1
-            eval = loop_eval(eval, err, line_num)
-            parse = False
-    elif re.match("^\s*end\sbody;", line):
-        if direction:
-            end_num += 1
-            eval -= 1
-            eval = loop_eval(eval, err, line_num)
-            parse = False
-        else:
-            num += 1
-            eval += 1
-            parse = True
-    return num, end_num, eval, parse, err
-
-def open_match(count, eval):
-    count += 1
-    eval += 1
-    return count, eval
-
-def close_match(count, eval):
-    count += 1
-    eval -= 1
-    return count, eval
-
-def open_requireds(pattern_name, line, count, eval, found, attr):
-    count += 1
-    eval += 1
-    found.append(pattern_name)
-    attr = False
-    return count, eval, found, attr
-
-def close_requireds(pattern_name, line, count, eval, missing, err, attr, missing_attr, attr_err):
-    count += 1
-    eval -= 1
-    if (eval < 0):
-        missing.append(pattern_name)
-        eval = 0
-        err += 1
-    if not attr:
-        missing_attr.append(pattern_name)
-        attr_err += 1
-    return count, eval, missing, err, missing_attr, attr_err
-
-def closing_decs(eval, missing_end, pattern_name, err):
-    if (eval > 0):
-        missing_end.append(pattern_name)
-        eval = 0
-        err += 1
-    return eval, missing_end, err
-
-def print_eval(section, open, close, clause, err, rev_err):
-    if (open == close):
-        print (" *Even number of " + clause + " (" + str(open) + "), but you've done something really wrong...")
-    else:
-        print (" *Odd number of " + clause + " found! " + str(section) + " = " + str(open) + "; end " + str(section) + " = " + str(close) +":")
-
-    if (err):
-        for line_err in err:
-            print ("   line " +str(line_err) + ": " + clause + " here or inside missing opening statement.")
-    if (rev_err):
-        for line_err in rev_err:
-            print ("   line " +str(line_err) + ": " + clause + " here or inside missing closing statement.")
-    print "\n"
-
 parsing, rev_parsing, patt_parse, rev_patt_parse, tpl_parsing, fwd = [False] * 6
 pattern_name = ""
-pattern_list = []
 
 #pdb.set_trace()
 
@@ -197,13 +55,14 @@ with open(sys.argv[1]) as tpl_file:
     ov_tags, trig_on, ignore_text, constants, defins, open_bracket = [False]*6
     config_var, defins_var, ob_line, trig_line, import_line, var_line = [""]*6
     end_imports, trigger = [False]*2
-    assign_eval, var_warning, else_clause = [False]*3
+    assign_eval, var_warning, else_clause, sid_tags, for_block, open_assignment = [False]*6
     sid_eval, sid_count, endsid_count, sid_found = [0]*4
-    sid_tags = False
     has_sid = []
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    global_vars, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery', "0" ] for i in range(2))
+    global_vars, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery', 'in' ] for i in range(2))
+    # temporary fix to get correct number in summary
+    keywords = len(global_vars)
 
     for full_line in tpl_file:
         lines.append(full_line.strip())
@@ -281,12 +140,12 @@ with open(sys.argv[1]) as tpl_file:
             if table:
                 tab_var = re.search("^\s*table\s+(\w+)\s+\d+\.\d", line).group(1)
                 global_vars.append(tab_var)
-                table_count, table_eval = open_match(table_count, table_eval)
+                table_count, table_eval = sections.open_match(table_count, table_eval)
 
             end_table = re.search("^\s*end\stable;", line)
             if end_table:
-                endtable_count, table_eval = close_match(endtable_count, table_eval)
-                table_eval = loop_eval(table_eval, table_err, line_num)
+                endtable_count, table_eval = sections.close_match(endtable_count, table_eval)
+                table_eval = loops.loop_eval(table_eval, table_err, line_num)
 
             # Configuration evaluation
             config = re.search("^\s*configuration\s+\w+\s+\d+\.\d", line)
@@ -370,7 +229,7 @@ with open(sys.argv[1]) as tpl_file:
 
             # Count of simple ids
             if re.match("\s*identify\s+", line):
-                sid_count, sid_eval, has_sid, sid_tags = open_requireds(pattern_name, line, sid_count, sid_eval, has_sid, sid_tags)
+                sid_count, sid_eval, has_sid, sid_tags = attributes.open_requireds(pattern_name, line, sid_count, sid_eval, has_sid, sid_tags)
             
             # Count of simple ids
             if sid_eval > 0:
@@ -380,7 +239,7 @@ with open(sys.argv[1]) as tpl_file:
                     sid_found += 1
 
             if re.search("^\s*end\s*identify;", line):
-                endsid_count, sid_eval, missing_sid, sid_err, missing_sids, sids_err = close_requireds(
+                endsid_count, sid_eval, missing_sid, sid_err, missing_sids, sids_err = attributes.close_requireds(
                     pattern_name, line, endsid_count, sid_eval, missing_sid, sid_err, sid_tags, missing_sids, sids_err)
             
             trig_complete = False
@@ -394,17 +253,22 @@ with open(sys.argv[1]) as tpl_file:
 
             if trig_complete:
                 if "created" in trig_line or "confirmed" in trig_line:
-                    trig_line = trig_line.replace("created", "")
-                    trig_line = trig_line.replace("confirmed", "")
-                    trig_line = trig_line.replace(",", "")
+                    trig_trim = trig_line.replace("created", "")
+                    trig_trim = trig_trim.replace("confirmed", "")
+                    trig_trim = trig_trim.replace(",", "")
+                else:
+                    trig_trim = trig_line
 
-                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s*[\"\']", trig_line)
+                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s*[\"\']", trig_trim)
 
+                if not trig_statement:
+                    trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s*;", trig_trim)
+                
                 if not trig_statement:
                     syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
 
             # Pattern evaluation
-            pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern_parse(
+            pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern.pattern_parse(
                 pattern_name, fwd, line, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, line_num)
 
         # If inside pattern
@@ -412,14 +276,14 @@ with open(sys.argv[1]) as tpl_file:
 
             # Overview evaluation
             if re.match("^\s*overview\s*$", line):
-                ov_count, ov_eval, has_ov, ov_tags = open_requireds(pattern_name, line, ov_count, ov_eval, has_ov, ov_tags)
+                ov_count, ov_eval, has_ov, ov_tags = attributes.open_requireds(pattern_name, line, ov_count, ov_eval, has_ov, ov_tags)
 
             # Count of tags
             if re.match("\s*tags\s+\S+", line):
                 ov_tags = True
 
             if re.search("^\s*end\soverview;", line):
-                endov_count, ov_eval, missing_ov, ov_err, missing_tags, tags_err = close_requireds(
+                endov_count, ov_eval, missing_ov, ov_err, missing_tags, tags_err = attributes.close_requireds(
                     pattern_name, line, endov_count, ov_eval, missing_ov, ov_err, ov_tags, missing_tags, tags_err)
 
             # Constants
@@ -435,7 +299,7 @@ with open(sys.argv[1]) as tpl_file:
 
             # Trigger evaluation
             if re.match("^\s*triggers\s*$", line):
-                trig_count, trig_eval, has_trigger, trig_on = open_requireds(pattern_name, line, trig_count, trig_eval, has_trigger, trig_on)
+                trig_count, trig_eval, has_trigger, trig_on = attributes.open_requireds(pattern_name, line, trig_count, trig_eval, has_trigger, trig_on)
 
             # Check for trigger condition
             if re.match("\s*on\s+\S+\s*:=", line):
@@ -443,20 +307,20 @@ with open(sys.argv[1]) as tpl_file:
                 global_vars.append(re.search("(\S+)\s*:=", line).group(1))
 
             if re.search("^\s*end\striggers;", line):
-                endtrig_count, trig_eval, missing_trig, trig_err, missing_trigon, trig_on_err = close_requireds(
+                endtrig_count, trig_eval, missing_trig, trig_err, missing_trigon, trig_on_err = attributes.close_requireds(
                     pattern_name, line, endtrig_count, trig_eval, missing_trig, trig_err, trig_on, missing_trigon, trig_on_err)
 
             # Body evaluation
-            body_num, endbody_num, body_eval, parsing, body_err = body_parse(
+            body_num, endbody_num, body_eval, parsing, body_err = body.body_parse(
                 fwd, line, body_num, endbody_num, body_eval, parsing, body_err, line_num)
 
             # If inside body
             if parsing:
 
                 # Check end ov
-                ov_eval, missing_endov, endov_err = closing_decs(ov_eval, missing_endov, pattern_name, endov_err)
+                ov_eval, missing_endov, endov_err = attributes.closing_decs(ov_eval, missing_endov, pattern_name, endov_err)
                 # Check end trigger
-                trig_eval, missing_endtrig, endtrig_err = closing_decs(trig_eval, missing_endtrig, pattern_name, endtrig_err)
+                trig_eval, missing_endtrig, endtrig_err = attributes.closing_decs(trig_eval, missing_endtrig, pattern_name, endtrig_err)
 
                 # Set general TPL parsing
                 tpl_parsing = True
@@ -473,20 +337,22 @@ with open(sys.argv[1]) as tpl_file:
         
             # Check IF evaluations
             if re.match("^\s*if\s+", line):
-                if_count, if_eval = open_match(if_count, if_eval)
+                if_count, if_eval = sections.open_match(if_count, if_eval)
             if re.match("^\s*end\sif\s*;", line):
-                endif_count, if_eval = close_match(endif_count, if_eval)
-                if_eval = loop_eval(if_eval, if_err, line_num)
+                endif_count, if_eval = sections.close_match(endif_count, if_eval)
+                if_eval = loops.loop_eval(if_eval, if_err, line_num)
             # Check FOR evaluations
             if re.match("^\s*for\s.*do", line):
-                for_count, for_eval = open_match(for_count, for_eval)
+                for_count, for_eval = sections.open_match(for_count, for_eval)
             if re.match("^\s*end\sfor\s*;", line):
-                endfor_count, for_eval = close_match(endfor_count, for_eval)
-                for_eval = loop_eval(for_eval, for_err, line_num)
+                endfor_count, for_eval = sections.close_match(endfor_count, for_eval)
+                for_eval = loops.loop_eval(for_eval, for_err, line_num)
 
             ############################
             # Variable initialisations #
             ############################
+            
+            var_ln = line_num
             
             # For warning variables inside of if evaluations
             if if_eval == 1 and re.match("^\s*if\s+", line):
@@ -496,17 +362,33 @@ with open(sys.argv[1]) as tpl_file:
              
             if if_eval == 1 and re.match("^\s*else\s*$", line):
                 else_clause = True
+            
+            if ";" in line:
+                #print line
+                open_assignment = False
                 
-            open_assignment = False
-            var_ln = line_num
+                # Check line syntax errors
+                no_quotes = re.sub("[\"']([^\']*)[\"']", "", line)
+                #print no_quotes
+                #print "================="
+                if re.search("^\s*\S+\s*=",no_quotes): # missing colon (:)
+                    syntax_errs.append(str(line_num) + ": " + str.strip(line))
                         
             if ":=" in line:
                 open_assignment = True
+            
+            if config_var in line:
+                conf = re.compile("%s\.(\w+)"%config_var)
+                var = re.search(conf, line)
+                if var:
+                    used.append(var.group(1))
 
             if open_assignment and not ";" in line:
+                #print "line " + str(var_ln) + " ';' not found"
                 if re.search("^\s*if.*then\s*$", line):
                     var_declared = True
                 else:
+                    #print "line " + str(var_ln) + ": " + str(var_line)
                     var_line += " $" + str(line_num) + "$ " + str.strip(line)
                     var_declared = False
             else:
@@ -519,6 +401,7 @@ with open(sys.argv[1]) as tpl_file:
                 # var_line clean
                 if re.match("^\s*\$\d+\$", var_line):
                     var_line = re.match("^\s*\$\d+\$(.*)", var_line).group(1)
+                    #print "line " + str(var_ln) + ": " + str(var_line)
                 
                 assigner = var_line.count(':=')
                 
@@ -543,7 +426,11 @@ with open(sys.argv[1]) as tpl_file:
                         pass
                     elif re.search("no_match\s*:=", var_line):
                         pass
+                    elif re.search(":=\s*time\.", var_line):
+                        pass
                     else:
+                        #print "line " + str(var_ln) + ": " + str(var_line)
+                        #print "=========================================="
                         syntax_errs.append(str(var_ln) + ": " + str.strip(var_line))
                 
                 # Get variables assigned
@@ -593,19 +480,23 @@ with open(sys.argv[1]) as tpl_file:
                         else:
                             used.append(var)
                             
-                    # Handle embedded functions
-                    embed_line = re.sub("[\"']([^\"']*)[\"']", "", var_line)
-                    if embed_line:
-                        embeds = embed_line.count('(')
-                        if embeds > 1:
-                            vars = re.findall("\(\s*(\w+),?", embed_line)
-                            for var in vars:
-                                if var == "text":
-                                    pass # text function
-                                elif var == "not":
-                                    pass # not evaluation
-                                else:
-                                    used.append(var)
+                    # Handle embedded functions and quotes
+                    embed_line = re.sub("[\"']([^\']*)[\"']", "", var_line)
+                    embed_line = re.sub("[\"']([^\"]*)[\"']", "", embed_line)
+                    embeds = embed_line.count('(')
+                    if re.search("(^|:=)\s*model\.", var_line):
+                        pass
+                    elif re.search("^\s*log\.", var_line):
+                        pass
+                    elif embeds > 0:
+                        vars = re.findall("\(\s*(\w+),?", embed_line)
+                        for var in vars:
+                            if var == "text":
+                                pass # text function
+                            elif var == "not":
+                                pass # not evaluation
+                            else:
+                                used.append(var)
 
                 if re.search(":=\s*(regex\.extract|discovery.*)\s*\((\w+),", var_line):
                     cond = re.search("\((\w+),", var_line).group(1)
@@ -743,9 +634,9 @@ with open(sys.argv[1]) as tpl_file:
                             
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
                     elif var not in global_vars:
-                        print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
-                        print global_vars
-                        print "======================================"
+                        #print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
+                        #print global_vars
+                        #print "======================================"
 
                         if var not in varlist:
                             #print ("line " + str(var_ln) + ": " + str(var_line))
@@ -754,8 +645,9 @@ with open(sys.argv[1]) as tpl_file:
                             initlist.append(str(var_ln) + ": " + str(var))
 
                         # print warn_list
+                        same_block = False
+                        new_if_block = False
                         for warn in warn_list:
-                            same_block = False
                             if var in warn:
                                 block_no = warn[0]
                                 #print warn
@@ -773,15 +665,19 @@ with open(sys.argv[1]) as tpl_file:
                                     # Var is in the same block
                                     #print ("if_block (" + str(if_block) + ") or for_block (" + str(for_block) + ") = block_no (" + str(block_no) + ")")
                                     same_block = True
+                                
+                                if (if_block > block_no):
+                                    new_if_block = True
 
-                        if not same_block:
-                            if (if_block > block_no):
-                                #print "Not same block"
-                                #print ("var warning: " + str(warn) + ", if_block = " + str(if_block) + ", for_block = " + str(for_block) + ", block_no = " + str(block_no))
-                                #print ("line " + str(var_ln) + ": " + str(var_line))
-                                #print warn_list
-                                #print ("==========================================")
-                                var_warn.append(str(var_ln) + ": " + str(var))
+                        # this takes place outside of for loop as a var may be assigned twice but still be valid in the same
+                        # block, so we have to check that it is both not the same block and that it is a new block
+                        if not same_block and new_if_block:
+                            #print "Not same block"
+                            #print ("var warning: " + str(warn) + ", if_block = " + str(if_block) + ", for_block = " + str(for_block) + ", block_no = " + str(block_no))
+                            #print ("line " + str(var_ln) + ": " + str(var_line))
+                            #print warn_list
+                            #print ("==========================================")
+                            var_warn.append(str(var_ln) + ": " + str(var))
 
                 var_line = ""
                 var_declared = False
@@ -808,15 +704,15 @@ with open(sys.argv[1]) as tpl_file:
             # Table declarations
             end_table = re.search("^\s*end\stable;", row)
             if end_table:
-                rev_endtable_count, rev_table_eval = open_match(rev_endtable_count, rev_table_eval)
+                rev_endtable_count, rev_table_eval = sections.open_match(rev_endtable_count, rev_table_eval)
 
             table = re.search("^\s*table\s+\w+\s+\d+\.\d", row)
             if table:
-                rev_table_count, rev_table_eval = close_match(rev_table_count, rev_table_eval)
-                rev_table_eval = loop_eval(rev_table_eval, rev_table_err, rev_line_num)
+                rev_table_count, rev_table_eval = sections.close_match(rev_table_count, rev_table_eval)
+                rev_table_eval = loops.loop_eval(rev_table_eval, rev_table_err, rev_line_num)
 
             # Pattern evaluation
-            pattern_name, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, pattern_list = pattern_parse(
+            pattern_name, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, pattern_list = pattern.pattern_parse(
                 pattern_name, fwd, row, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, rev_line_num)
 
         # If inside pattern
@@ -838,7 +734,7 @@ with open(sys.argv[1]) as tpl_file:
                 continue
 
             # Body evaluation
-            rev_body_num, rev_endbody_num, rev_body_eval, rev_parsing, rev_body_err = body_parse(
+            rev_body_num, rev_endbody_num, rev_body_eval, rev_parsing, rev_body_err = body.body_parse(
                 fwd, row, rev_body_num, rev_endbody_num, rev_body_eval, rev_parsing, rev_body_err, rev_line_num)
 
             # If inside body
@@ -846,16 +742,16 @@ with open(sys.argv[1]) as tpl_file:
 
                 # Check IF evaluations
                 if re.match("^\s*end\sif\s*;", row):
-                    rev_endif_count, rev_if_eval = open_match(rev_endif_count, rev_if_eval)
+                    rev_endif_count, rev_if_eval = sections.open_match(rev_endif_count, rev_if_eval)
                 if re.match("^\s*if\s+", row):
-                    rev_if_count, rev_if_eval = close_match(rev_if_count, rev_if_eval)
-                    rev_if_eval = loop_eval(rev_if_eval, rev_if_err, rev_line_num)
+                    rev_if_count, rev_if_eval = sections.close_match(rev_if_count, rev_if_eval)
+                    rev_if_eval = loops.loop_eval(rev_if_eval, rev_if_err, rev_line_num)
                 # Check FOR evaluations
                 if re.match("^\s*end\sfor\s*;", row):
-                    rev_endfor_count, rev_for_eval = open_match(rev_endfor_count, rev_for_eval)
+                    rev_endfor_count, rev_for_eval = sections.open_match(rev_endfor_count, rev_for_eval)
                 if re.match("^\s*for\s.*do", row):
-                    rev_for_count, rev_for_eval = close_match(rev_for_count, rev_for_eval)
-                    rev_for_eval = loop_eval(rev_for_eval, rev_for_err, rev_line_num)
+                    rev_for_count, rev_for_eval = sections.close_match(rev_for_count, rev_for_eval)
+                    rev_for_eval = loops.loop_eval(rev_for_eval, rev_for_err, rev_line_num)
 
 tpl_file.close()
 
@@ -866,12 +762,12 @@ if (module_num > 1):
 elif (module_num == 0):
     print (" * Something wrong with module declaration!")
 
-eval(meta_eval, "metadata")
-eval(config_eval, "configuration")
-eval(defins_eval, "definitions")
+evaluate.eval(meta_eval, "metadata")
+evaluate.eval(config_eval, "configuration")
+evaluate.eval(defins_eval, "definitions")
 
-missing_warn("overview", missing_ov, missing_endov, ov_err, endov_err, ov_count, pattern_num, pattern_list, has_ov)
-missing_warn("trigger", missing_trig, missing_endtrig, trig_err, endtrig_err, trig_count, pattern_num, pattern_list, has_trigger)
+missing.missing_warn("overview", missing_ov, missing_endov, ov_err, endov_err, ov_count, pattern_num, pattern_list, has_ov)
+missing.missing_warn("trigger", missing_trig, missing_endtrig, trig_err, endtrig_err, trig_count, pattern_num, pattern_list, has_trigger)
 
 if tags_err > 0:
     print(" * Missing tags declaration(s)...")
@@ -884,7 +780,7 @@ if trig_on_err > 0:
         print ("    " + str(pattern))
 
 if (body_err or rev_body_err):
-    print_eval("body", body_num, endbody_num, "body declarations", body_err, rev_body_err)
+    printing.print_eval("body", body_num, endbody_num, "body declarations", body_err, rev_body_err)
 
 if (pattern_num == 0 and not patt_err):
     print(" WARNING: No pattern declarations!");
@@ -899,7 +795,7 @@ print ("\n ===TPL SUMMARY===\n")
 print (" TPL Version: " + str(tpl_ver) + "\n")
 print (" Number of lines in file:              " + str(line_num))
 if (patt_err or rev_patt_err):
-    print_eval("pattern", pattern_num, endpattern_num, "pattern declarations", patt_err, rev_patt_err)
+    printing.print_eval("pattern", pattern_num, endpattern_num, "pattern declarations", patt_err, rev_patt_err)
 else:
     print (" Number of patterns in file:           " + str(pattern_num))
 
@@ -911,8 +807,9 @@ print (" Number of listDirectorys:             " + str(listdirs))
 print (" Number of fileInfos:                  " + str(fileinfos))
 print (" Number of registryKeys:               " + str(regkeys))
 varlist += global_vars
-varlist = uniq(varlist)
-print (" Number of variable assignments:       " + str(len(varlist)))
+varlist = ulist.uniq(varlist)
+varlen = len(varlist) - keywords
+print (" Number of variable assignments:       " + str(varlen))
 print (" Number of definition blocks:          " + str(define_count))
 print (" Number of SI types declared:          " + str(sis))
 print (" Number of Detail types declared:      " + str(details))
@@ -920,28 +817,28 @@ print (" Number of Simple Identities:          " + str(sid_found))
 print (" Number of imported modules:           " + str(imported))
 
 if (if_err or rev_if_err):
-    print_eval("if", if_count, endif_count, "IF evaluations", if_err, rev_if_err)
+    printing.print_eval("if", if_count, endif_count, "IF evaluations", if_err, rev_if_err)
 else:
     print (" Number of IF evaluations:             " +str(if_count))
 
 if (for_err or rev_for_err):
-    print_eval("for", for_count, endfor_count, "FOR loops", for_err, rev_for_err)
+    printing.print_eval("for", for_count, endfor_count, "FOR loops", for_err, rev_for_err)
 else:
     print (" Number of FOR loops:                  " + str(for_count))
 
 if (table_err or rev_table_err):
-    print_eval("table", table_count, endtable_count, "tables declared", table_err, rev_table_err)
+    printing.print_eval("table", table_count, endtable_count, "tables declared", table_err, rev_table_err)
 else:
     print (" Number of tables declared:            " +str(table_count))
 
 if initlist:
-    warnings(initlist, "Uninitialised variables found")
+    warning.warnings(initlist, "Uninitialised variable(s) found")
 
 if var_warn:
-    var_warn = uniq(var_warn)
-    warnings(var_warn, "Warning: Variables in embedded if/for loops MAY be uninitialised")
+    var_warn = ulist.uniq(var_warn)
+    warning.warnings(var_warn, "Warning: Variable(s) in embedded if/for loops MAY be uninitialised")
 
 if syntax_errs:
-    warnings(syntax_errs, "Syntax error in line(s) found")
+    warning.warnings(syntax_errs, "Syntax error in line(s) found")
     
 print "\n"

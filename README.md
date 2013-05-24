@@ -2,7 +2,7 @@
 
 ## Version
 
-0.1.3 (alpha)
+0.1.4 (alpha)
 
 ## Description
 
@@ -10,7 +10,7 @@ A TPL pattern language parser for BMC's Atrium Discovery and Dependency Mapping 
 
 Code is still alpha so...
 - PDB debugging enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
-- Parsing works, but it won't catch everything, you may still be caught out when it comes to uploading to your appliance.
+- Parsing is working for items listed, but may still be subject to some bugs and not everything is checked - please submit an issue with sample TPL in order to prioritise fix/implementation.
 
 ---
 
@@ -38,7 +38,7 @@ $ python tplser.py file.tpl
 * Trigger syntax
 * If statement handling of else/elif on uninitialised variables
 
-### Getting to Work:
+### Will Eventually Work:
 
 * Section headers: simple identities, business application instances
 * Syntax: typo catching
@@ -49,6 +49,7 @@ $ python tplser.py file.tpl
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
 * Needs function for splitting up of text strings and variable declarations for accidental false positive matches
+* Invocations after a `stop;`
 
 ### Nice To Have:
 
@@ -68,6 +69,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Alpha | 0.1.4 | Exported functions to modules.<br>Corrected variable assignment count summary.<br>More bugfixes for syntax checking. |
 | Alpha | 0.1.3 | Added PDB debugging.<br>Fixed further issues with assigned/uninitialised variables.<br>Fixed syntax error matching bugs.<br>Basic string checking added.<br>Simple Identities count added to summary. Bug fixes.<br>Parser handles variables declared after an 'else' statement, meaning no warning. |
 | Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected. |
 | Alpha | 0.1.1 | Added support for older versions of python for args check.<br>Improved import parsing code.<br>Small improvements to syntax checking.<br>Improved code for uninitialised variable warning.<br>Added TPL version to summary. |
