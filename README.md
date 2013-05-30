@@ -2,7 +2,7 @@
 
 ## Version
 
-0.1.4 (alpha)
+0.1.5 (alpha)
 
 ## Description
 
@@ -37,6 +37,8 @@ $ python tplser.py file.tpl
 * Uninitialised variable warnings
 * Trigger syntax
 * If statement handling of else/elif on uninitialised variables
+* ECA error check for concatenation of strings in a log statement
+* Invocations after a `stop;`
 
 ### Will Eventually Work:
 
@@ -49,7 +51,7 @@ $ python tplser.py file.tpl
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
 * Needs function for splitting up of text strings and variable declarations for accidental false positive matches
-* Invocations after a `stop;`
+* Syntax causing ECA errors
 
 ### Nice To Have:
 
@@ -69,6 +71,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Alpha | 0.1.5 | Check for syntax that would cause ECA Error - concatenation in a log statement.<br>Checks for invocations after a stop.<br>Fixed bug with configuration variable being assigned 0 length string.<br>Fixed imports not added to variable list. |
 | Alpha | 0.1.4 | Exported functions to modules.<br>Corrected variable assignment count summary.<br>More bugfixes for syntax checking. |
 | Alpha | 0.1.3 | Added PDB debugging.<br>Fixed further issues with assigned/uninitialised variables.<br>Fixed syntax error matching bugs.<br>Basic string checking added.<br>Simple Identities count added to summary. Bug fixes.<br>Parser handles variables declared after an 'else' statement, meaning no warning. |
 | Alpha | 0.1.2 | Fixed issues with if evaluation blocks - should now be working as expected. |

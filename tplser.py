@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.1.4 (alpha)
+# Version 0.1.5 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -48,16 +48,18 @@ with open(sys.argv[1]) as tpl_file:
     ov_err, endov_err, tags_err, trig_err, endtrig_err, trig_on_err, endtable_count, sids_err = [0]*8
     patt_err, if_err, for_err, body_err, table_err, sid_err = ([] for i in range(6))
     lines, mod_line = ([] for i in range(2))
-    ov_pattern, trig_pattern = ([] for i in range(2))
+    ov_pattern, trig_pattern, eca_errs = ([] for i in range(3))
     missing_trig, missing_endtrig, missing_trigon = ([] for i in range(3))
     has_trigger, has_ov, initlist, used, imports, unterminated, var_warn, warn_list, for_warn_list, syntax_errs = ([] for i in range(10))
     missing_ov, missing_endov, missing_tags, missing_sid, missing_sids = ([] for i in range(5))
     ov_tags, trig_on, ignore_text, constants, defins, open_bracket = [False]*6
-    config_var, defins_var, ob_line, trig_line, import_line, var_line = [""]*6
+    defins_var, ob_line, trig_line, import_line, var_line, no_quotes = [""]*6
+    config_var = "" 
     end_imports, trigger = [False]*2
     assign_eval, var_warning, else_clause, sid_tags, for_block, open_assignment = [False]*6
     sid_eval, sid_count, endsid_count, sid_found = [0]*4
     has_sid = []
+    stopp = False
 
     # For storing custom variables declared in pattern, predefined keywords added here:
     global_vars, varlist = ([ 'model', 'regex', 'discovery', 'search', 'table', 'time', 'false', 'true', 'process', 'function', 'sql_discovery', 'size', 'number', 'xpath', 'none', 'raw', 'expand', 'vsphere_discovery', 'from_id', 'vcenter_discovery', 'in' ] for i in range(2))
@@ -118,22 +120,24 @@ with open(sys.argv[1]) as tpl_file:
                 meta_eval -= 1
 
             # Imports - Join all import lines
-            end_imports = False
             import_dec = re.search("^\s*from\s+\S+\s+import\s+(\w+)", line)
+            
             if import_dec:
                 imported += 1
                 import_ln = line_num
                 import_line = line
-                if not ";" in import_line:
-                    import_line += " " + str.strip(line)
-                else:
-                    end_imports = True
+                imports = True
 
             # Import line complete, get all variables
-            if end_imports:
-                import_vars = re.findall("(\w+)\s+\d+\.\d", import_line)
-                for var in import_vars:
-                    global_vars.append(var)
+            if imports:
+                if not ";" in import_line:
+                    import_line += " " + str.strip(line)
+                    end_imports = False
+                else:
+                    import_vars = re.findall("(\w+)\s+\d+\.\d", import_line)
+                    imports = False
+                    for var in import_vars:
+                        global_vars.append(var)
 
             # Table evaluations
             table = re.search("^\s*table\s+\w+\s+\d+\.\d", line)
@@ -152,6 +156,7 @@ with open(sys.argv[1]) as tpl_file:
             if config:
                 config_eval += 1
                 config_var = re.match("^\s*configuration\s+(\w+)\s+\d+\.\d", line).group(1)
+                # print ("config var = " + str(config_var))
                 global_vars.append(config_var)
                 tpl_parsing = True
 
@@ -198,6 +203,10 @@ with open(sys.argv[1]) as tpl_file:
             # Count of logs
             if re.match("\s*log\.\w+\(", line):
                 logs += 1
+                no_quotes = re.sub("[\"\'](.*?)[\"\']", "", line)
+                if "+" in no_quotes:
+                    if "time." in no_quotes: # time function is not a string
+                        eca_errs.append(str(line_num) + ", Concatenation of strings in log statement:\n      " + str.strip(line))
             
             # Count of run commands
             if re.search("\s*discovery\.runCommand\(", line):
@@ -354,6 +363,19 @@ with open(sys.argv[1]) as tpl_file:
             
             var_ln = line_num
             
+            if if_eval > 0 and "stop;" in line:
+                stopp = True
+            
+            if stopp and not "stop;" in line:
+                if_containers = ['else', 'elif', 'end if;']
+                stopright = False
+                for i in if_containers:
+                    if i in line:
+                        stopright = True
+                if not stopright:
+                    syntax_errs.append(str(line_num) + ", statement not reachable after stop:\n      " + str.strip(line))
+                stopp = False
+            
             # For warning variables inside of if evaluations
             if if_eval == 1 and re.match("^\s*if\s+", line):
                 if_block += 1
@@ -368,24 +390,28 @@ with open(sys.argv[1]) as tpl_file:
                 open_assignment = False
                 
                 # Check line syntax errors
-                no_quotes = re.sub("[\"']([^\']*)[\"']", "", line)
+                no_quotes = re.sub("[\"'](.*?)[\"']", "", line)
                 #print no_quotes
                 #print "================="
-                if re.search("^\s*\S+\s*=",no_quotes): # missing colon (:)
+                if re.search("^\s*\w+\s*=", no_quotes): # missing colon (:)
                     syntax_errs.append(str(line_num) + ": " + str.strip(line))
                         
             if ":=" in line:
                 open_assignment = True
             
-            if config_var in line:
+            if config_var and config_var in line:
+                #print ("config_var is " + str(config_var))
                 conf = re.compile("%s\.(\w+)"%config_var)
+                #print ("conf is " + str(conf))
                 var = re.search(conf, line)
                 if var:
                     used.append(var.group(1))
+                    #print ("appending... " + str(var.group(1)))
 
             if open_assignment and not ";" in line:
                 #print "line " + str(var_ln) + " ';' not found"
                 if re.search("^\s*if.*then\s*$", line):
+                    var_line = line
                     var_declared = True
                 else:
                     #print "line " + str(var_ln) + ": " + str(var_line)
@@ -406,7 +432,7 @@ with open(sys.argv[1]) as tpl_file:
                 assigner = var_line.count(':=')
                 
                 # Getting string between "/'  characters
-                quotes = re.findall("[\"']([^\"']*)[\"']", var_line)
+                quotes = re.findall("[\"'](.*?)[\"']", var_line)
                 if quotes:
                     for quote in quotes:
                         if ":=" in quote:
@@ -449,6 +475,11 @@ with open(sys.argv[1]) as tpl_file:
                     var = re.search("^\s*for\s*(\w+)\s*in", var_line).group(1)
                     for_block = True
                     varlist.append(var)
+                
+                if "matches expand" in line:
+                    var = re.search("\s*(\S+)\s*:=", var_line).group(1)
+                    print("matches expand: " + str(var))
+                    varlist.append(var)
 
                 if var:
                     # Check if variable has already been declared, if not then it is a genuine warning
@@ -481,12 +512,15 @@ with open(sys.argv[1]) as tpl_file:
                             used.append(var)
                             
                     # Handle embedded functions and quotes
-                    embed_line = re.sub("[\"']([^\']*)[\"']", "", var_line)
-                    embed_line = re.sub("[\"']([^\"]*)[\"']", "", embed_line)
+                    embed_line = re.sub("[\"'](.*?)[\"']", "", var_line)
                     embeds = embed_line.count('(')
                     if re.search("(^|:=)\s*model\.", var_line):
                         pass
                     elif re.search("^\s*log\.", var_line):
+                        pass
+                    elif re.search(":=\s*search\s*\(", var_line):
+                        pass
+                    elif re.search(":=\s*time\.", var_line):
                         pass
                     elif embeds > 0:
                         vars = re.findall("\(\s*(\w+),?", embed_line)
@@ -530,15 +564,14 @@ with open(sys.argv[1]) as tpl_file:
 
                 if re.search(":=\s*(\w+)\+?.*[;,]", var_line):
                     var = re.search(":=\s*(\w+)\+?.*[;,]", var_line).group(1)
-                    if var == defins_var:
-                        pass
-                    elif var == "text":
+                    if var == "text":
                         if "%" in line:
-                            var = re.search("%(\S+)%", var_line).group(1)
-                            if "." in var:
-                                used.append(re.search("(\w+)\.", var).group(1))
-                            else:
-                                used.append(var)
+                            vars = re.findall("%(\w+)%", var_line)
+                            for var in vars:
+                                if "." in var:
+                                    used.append(re.search("(\w+)\.", var).group(1))
+                                else:
+                                    used.append(var)
                         #else:
                             #used.append(re.search(":=\s*text\.\w+\(\s*(\w+)\+?.*[;,]", var_line).group(1))
                     else:
@@ -634,9 +667,9 @@ with open(sys.argv[1]) as tpl_file:
                             
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
                     elif var not in global_vars:
-                        #print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
+                        print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
                         #print global_vars
-                        #print "======================================"
+                        print "======================================"
 
                         if var not in varlist:
                             #print ("line " + str(var_ln) + ": " + str(var_line))
@@ -840,5 +873,8 @@ if var_warn:
 
 if syntax_errs:
     warning.warnings(syntax_errs, "Syntax error in line(s) found")
+
+if eca_errs:
+    warning.warnings(eca_errs, "Warning: The syntax in these line(s) may cause an ECA Error")
     
 print "\n"
