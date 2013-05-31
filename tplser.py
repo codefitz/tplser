@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Version 0.1.5 (alpha)
+# Version 0.1.6 (alpha)
 #
 # Author: Wes Fitzpatrick (github@wafitz.net)
 #
@@ -268,13 +268,49 @@ with open(sys.argv[1]) as tpl_file:
                 else:
                     trig_trim = trig_line
 
-                trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s+\w+\s+\(?\w+\s+(\S+)(\s+\w+)?\s*[\"\']", trig_trim)
+                # Break down trigger and check consistency in parts
+                trig_on = re.search("^\s*(on\s+\w+\s*:=\s*)", trig_trim).group(1)
+                trig_node = re.search(":=\s*(\w+)\s+", trig_trim).group(1)
+                trig_cond = re.search(":=\s*\w+\s+(\w+)\s*",trig_trim).group(1)
+                if trig_on and trig_node: # Basic trigger
+                    #print trig_trim
+                    trig_statement = False
+                    if not trig_cond:
+                        if re.search(":=\s*\w+\s*;", trig_trim): # If terminated here
+                            trig_statement = True
+                    else: # termination missing or conditional is missing
+                        trig_statement = False
+                        
+                    # Even bracket check
+                    #print trig_trim
+                    delim = re.sub("[\'].?[\"].*?[\']", "%", trig_trim) # Deal with embedded quotes in single quotes
+                    delim = re.sub("[\"'](.*?)[\"']", "%", delim)
+                    if "(" in delim:
+                        open_brackets = delim.count('(')
+                        close_brackets = delim.count(')')
+                        if not open_brackets == close_brackets:
+                            trig_statement = False
+                        
+                    # Substitute quotes for % delimiter
+                    delim_count = delim.count("%") # Check how many conditional statements we should have
+                    #print delim
+                    #print "delim % = " + str(delim_count)
+                    cond_count = 0
+                    conds = re.findall("((?:and\s+|or\s+|)\w+\s+matches(?:\s+\w+)?\s*%)", delim) # 'matches -----'
+                    conds += re.findall("((?:and\s+|or\s+|)\w+\s*=\s*%)", delim) # '='
+                    
+                    for cond in conds:
+                        cond_count += 1
+                        #print ("conds = " + str(cond_count) + ", delims = " + str(delim_count))
 
-                if not trig_statement:
-                    trig_statement = re.search("^\s*on\s+\w+\s+:=\s*(\w+)\s*;", trig_trim)
+                    if delim_count == cond_count:
+                        #print "cond_count = " + str(cond_count)
+                        trig_statement = True
+                    else:
+                        trig_statement = False
                 
-                if not trig_statement:
-                    syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
+                    if not trig_statement:
+                        syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
 
             # Pattern evaluation
             pattern_name, pattern_num, endpattern_num, patt_eval, patt_parse, patt_err, pattern_list = pattern.pattern_parse(
@@ -351,7 +387,7 @@ with open(sys.argv[1]) as tpl_file:
                 endif_count, if_eval = sections.close_match(endif_count, if_eval)
                 if_eval = loops.loop_eval(if_eval, if_err, line_num)
             # Check FOR evaluations
-            if re.match("^\s*for\s.*do", line):
+            if re.match("^\s*for\s+\S+\s+in\s+", line):
                 for_count, for_eval = sections.open_match(for_count, for_eval)
             if re.match("^\s*end\sfor\s*;", line):
                 endfor_count, for_eval = sections.close_match(endfor_count, for_eval)
@@ -440,7 +476,10 @@ with open(sys.argv[1]) as tpl_file:
                 
                 # Check to see if it belongs to a function, multiple assigners are expected
                 if assigner > 1:
-                    if re.search("^\s*log\.", var_line):
+                    defin = re.compile(":=\s*%s\."%defins_var)
+                    if defin:
+                        pass
+                    elif re.search("^\s*log\.", var_line):
                         pass
                     elif re.search("^\s*list\.", var_line):
                         pass
@@ -477,9 +516,10 @@ with open(sys.argv[1]) as tpl_file:
                     varlist.append(var)
                 
                 if "matches expand" in line:
-                    var = re.search("\s*(\S+)\s*:=", var_line).group(1)
-                    print("matches expand: " + str(var))
-                    varlist.append(var)
+                    var = re.search("\s*(\S+)\s*:=", var_line)
+                    if var:
+                        #print("matches expand: " + str(var))
+                        varlist.append(var)
 
                 if var:
                     # Check if variable has already been declared, if not then it is a genuine warning
@@ -514,6 +554,7 @@ with open(sys.argv[1]) as tpl_file:
                     # Handle embedded functions and quotes
                     embed_line = re.sub("[\"'](.*?)[\"']", "", var_line)
                     embeds = embed_line.count('(')
+                    bcount = var_line.count('(')
                     if re.search("(^|:=)\s*model\.", var_line):
                         pass
                     elif re.search("^\s*log\.", var_line):
@@ -522,7 +563,7 @@ with open(sys.argv[1]) as tpl_file:
                         pass
                     elif re.search(":=\s*time\.", var_line):
                         pass
-                    elif embeds > 0:
+                    elif embeds > 0 and not embeds == bcount:
                         vars = re.findall("\(\s*(\w+),?", embed_line)
                         for var in vars:
                             if var == "text":
@@ -552,9 +593,9 @@ with open(sys.argv[1]) as tpl_file:
                     used.append(re.search("^\s*model\.\w+\((\w+)\);", var_line).group(1))
 
                 if re.search("^\s*list\.", var_line):
-                    var = re.search("\(\s*(\w+)?,", var_line).group(1)
+                    var = re.search("\(\s*(\S+)?,", var_line).group(1)
                     if "[" in var:
-                        used.append(re.search("(\w+)?,\[", var_line).group(1))
+                        used.append(re.search("(\w+),?\[", var_line).group(1))
                     else:
                         used.append(var)
                     
@@ -667,9 +708,9 @@ with open(sys.argv[1]) as tpl_file:
                             
                     # This fudge garauntees removal of any variables declared outside of an if/for loop
                     elif var not in global_vars:
-                        print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
+                        #print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
                         #print global_vars
-                        print "======================================"
+                        #print "======================================"
 
                         if var not in varlist:
                             #print ("line " + str(var_ln) + ": " + str(var_line))
