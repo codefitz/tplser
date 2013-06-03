@@ -77,7 +77,15 @@ with open(sys.argv[1]) as tpl_file:
         
         # Strip comments
         if "//" in full_line:
-            values = re.findall("[\"\'].*[\"\']", full_line)
+            # This regex handles embedded " withing ' quotes
+            #values = re.findall("[\"\'].?.*?[\"\']", full_line)
+            apos = full_line.find("'")
+            dq = full_line.find('"')
+            if apos > dq:
+                values = re.findall("[\"].*?[\"]", full_line) # Double quotes
+            else:
+                values = re.findall("[\'].*?[\']", full_line) # Single quotes
+                
             if values: # if "//" is not a comment
                 for val in values:
                     if "//" in val:
@@ -409,7 +417,10 @@ with open(sys.argv[1]) as tpl_file:
                     if i in line:
                         stopright = True
                 if not stopright:
-                    syntax_errs.append(str(line_num) + ", statement not reachable after stop:\n      " + str.strip(line))
+                    if line.isspace(): # if line is just whitespace ignore
+                        pass
+                    else:
+                        syntax_errs.append(str(line_num) + ", statement not reachable after stop:\n      " + str.strip(line))
                 stopp = False
             
             # For warning variables inside of if evaluations
@@ -502,13 +513,19 @@ with open(sys.argv[1]) as tpl_file:
                 
                 var = ""
                 #print "line " + str(var_ln) + ": " + str(var_line)
-                if re.search("^\s*\S+\s*:=", var_line):
-                    var = re.search("^\s*(\S+)\s*:=", var_line).group(1)
+                if re.search("^\s*\w+", var_line):
+                    var = re.search("^\s*(\w+)", var_line).group(1)
                     #print ("var = " + str(var) + " (" + str(var_ln) + ")")
-                    if "." in var:
-                        var = re.search("^\s*(\S+)\.", var_line).group(1)
+                    #if "." in var:
+                    #    var = re.search("^\s*(\w+)\.", var_line).group(1)
                     varlist.append(var)
                     #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
+                    
+                if re.search("^\s*\w+,", var_line):
+                    vars = re.findall("\s*(\w+)(?:\s*:=|,)", var_line)
+                    for var in vars:
+                        varlist.append(var)
+                        #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
 
                 if re.search("^\s*for\s*\w+\s*in", var_line):
                     var = re.search("^\s*for\s*(\w+)\s*in", var_line).group(1)
@@ -548,11 +565,14 @@ with open(sys.argv[1]) as tpl_file:
                             if subs:
                                 for sub in subs:
                                     used.append(sub)
+                        elif re.search(":=\s*text\.", var_line):
+                            pass
                         else:
                             used.append(var)
                             
                     # Handle embedded functions and quotes
-                    embed_line = re.sub("[\"'](.*?)[\"']", "", var_line)
+                    embed_line = re.sub("[\'](.*?)[\']", "", var_line) # Single quotes
+                    embed_line = re.sub("[\"](.*?)[\"]", "", embed_line) # Double quotes
                     embeds = embed_line.count('(')
                     bcount = var_line.count('(')
                     if re.search("(^|:=)\s*model\.", var_line):
