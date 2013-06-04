@@ -2,7 +2,7 @@
 
 ## Version
 
-0.1.6 (alpha)
+0.1.7 (alpha)
 
 ## Description
 
@@ -71,6 +71,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Alpha | 0.1.7 | Moved regexes to compile functions in order to simplify code and eliminate duplication. |
 | Alpha | 0.1.6 | Bug fixes.<br>New code to evaluate multiple conditions in trigger statement. |
 | Alpha | 0.1.5 | Check for syntax that would cause ECA Error - concatenation in a log statement.<br>Checks for invocations after a stop.<br>Fixed bug with configuration variable being assigned 0 length string.<br>Fixed imports not added to variable list. |
 | Alpha | 0.1.4 | Exported functions to modules.<br>Corrected variable assignment count summary.<br>More bugfixes for syntax checking. |
