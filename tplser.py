@@ -95,6 +95,9 @@ with open(sys.argv[1]) as tpl_file:
     if_rx = re.compile("^\s*if\s+")
     if_then_rx = re.compile("^\s*if.*then\s*$")
     end_if_rx = re.compile("^\s*end\sif\s*;")
+    if_line_rx = re.compile("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))")
+    if_not_rx = re.compile("^\s*if\s*\(\s*not\s*\(\s*(\w+)")
+    if_text_rx = re.compile("^\s*if\s+text\.\w+\((\w+)")
     comment_block_rx = re.compile("^\s*[\"\'][\"\'][\"\']")
     comment_block_line_rx = re.compile("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']")
     conditionals_rx = re.compile("((?:and\s+|or\s+|)\w+\s+matches(?:\s+\w+)?\s*%)")
@@ -107,6 +110,7 @@ with open(sys.argv[1]) as tpl_file:
     end_constants_rx = re.compile("^\s*end\sconstants;")
     end_trigger_rx = re.compile("^\s*end\striggers;")
     for_rx = re.compile("^\s*for\s+(\S+)\s+in\s+")
+    for_in_rx = re.compile("^\s*for\s*\S+\s*in\s*(\w+)")
     end_for_rx = re.compile("^\s*end\sfor\s*;")
     else_rx = re.compile("^\s*else\s*$")
     syntax_rx = re.compile("^\s*\w+\s*=")
@@ -129,6 +133,16 @@ with open(sys.argv[1]) as tpl_file:
     cond_rx = re.compile("\((\w+),")
     sp_chars_rx = re.compile("(\w+),?[\[\.]")
     list_var = re.compile("\(\s*(\S+)?,")
+    var_plus_rx = re.compile(":=\s*(\w+)\+?.*[;,]")
+    result_rx = re.compile("(\w+)\.(result|content)")
+    square_bracket_rx = re.compile("\[(\w+)")
+    has_substring_rx = re.compile("has\s*substring\s*(\w+)")
+    matches_regex_rx = re.compile("matches\s+regex\s*(\w+)")
+    or_rx = re.compile("(?:(\".*)|\s+or\s+(\w+))")
+    and_rx = re.compile("\s+and\s+(not\s+)?(\w+)")
+    equals_rx = re.compile("=\s+text\.\w+\((\w+)")
+    not_in_rx = re.compile("not\s+in\s+(\w+)")
+    numeric_rx = re.compile("^[0-9]")
 
     for full_line in tpl_file:
         lines.append(full_line.strip())
@@ -365,8 +379,6 @@ with open(sys.argv[1]) as tpl_file:
                         
                     # Substitute quotes for % delimiter
                     delim_count = delim.count("%") # Check how many conditional statements we should have
-                    #print delim
-                    #print "delim % = " + str(delim_count)
                     cond_count = 0
                     conds = re.findall(conditionals_rx, delim) # 'matches -----'
                     conds += re.findall(conditional_equals_rx, delim) # '='
@@ -490,8 +502,6 @@ with open(sys.argv[1]) as tpl_file:
             # For warning variables inside of if evaluations
             if if_eval == 1 and re.match(if_rx, line):
                 if_block += 1
-                #print "if_block " + str(if_block) + ": " + str(line)
-                #print ("pattern: " + str(pattern_name) + ", if_block: " + str(if_block))
             
             if if_eval == 1 and re.match(else_rx, line):
                 else_clause = True
@@ -502,8 +512,6 @@ with open(sys.argv[1]) as tpl_file:
                 
                 # Check line syntax errors
                 no_quotes = re.sub(quotes_rx, "", line)
-                #print no_quotes
-                #print "================="
                 if re.search(syntax_rx, no_quotes): # missing colon (:)
                     syntax_errs.append(str(line_num) + ": " + str.strip(line))
                         
@@ -541,16 +549,15 @@ with open(sys.argv[1]) as tpl_file:
                 '''
                 if re.match(line_num_rx, var_line):
                     var_line = re.match(line_num_rx, var_line).group(1)
-                    #print "line " + str(var_ln) + ": " + str(var_line)
-                
+
                 assigner = var_line.count(':=')
                 
-                # Getting string between "/'  characters
+                # Getting string between " & ' characters
                 quotes = re.findall(quotes_rx, var_line)
                 if quotes:
                     for quote in quotes:
                         if ":=" in quote:
-                            assigner -= 1 # Remove an := chars between quotes
+                            assigner -= 1 # Don't count any ':=' chars between quotes
                 
                 # Check to see if it belongs to a function, multiple assigners are expected
                 if assigner > 1:
@@ -579,63 +586,53 @@ with open(sys.argv[1]) as tpl_file:
                 # Get variables assigned
                 
                 var = ""
-                #print "line " + str(var_ln) + ": " + str(var_line)
-                if re.search(var_rx, var_line):
-                    var = re.search(var_rx, var_line).group(1)
-                    #print ("var = " + str(var) + " (" + str(var_ln) + ")")
-                    #if "." in var:
-                    #    var = re.search("^\s*(\w+)\.", var_line).group(1)
+                vars = re.findall(vars_rx, var_line)
+                for var in vars:
                     varlist.append(var)
-                    #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
-                    
-                if re.search(var_rx, var_line):
-                    vars = re.findall(vars_rx, var_line)
-                    for var in vars:
-                        varlist.append(var)
-                        #print "appended " + str(var) + " to varlist (" + str(var_ln) + ")"
 
-                if re.search(for_rx, var_line):
-                    var = re.search(for_rx, var_line).group(1)
+                var = re.search(for_rx, var_line)
+                if var:
                     for_block = True
-                    varlist.append(var)
+                    varlist.append(var.group(1))
                 
-                if "matches expand" in line:
-                    var = re.search(matches_expand_rx, var_line)
-                    if var:
-                        #print("matches expand: " + str(var))
-                        varlist.append(var)
+                '''
+                I can't recall why this is needed
+                
+                #if "matches expand" in line:
+                    #var = re.search(matches_expand_rx, var_line)
+                    #if var:
+                        #print var_line
+                        #print "3 " + str(var.group(1))
+                        #varlist.append(var.group(1))
+                '''
 
                 if var:
-                    # Check if variable has already been declared, if not then it is a genuine warning
-                
+                    '''
+                    Check if variable has already been declared, if not then
+                    it is a genuine warning
+                    '''
                     if (if_eval > 0) and not else_clause and not for_block:
-                        warn = if_block, var
-                        #print ("assigning warn var = " + str(warn) + " (" + str(var_ln) + ")")
+                        warn = ifblock.IfBlock(if_block, if_eval, var)
                         warn_list.append(warn)
                         for_block = False
                     else:
                         global_vars.append(var)
-                        #print ("assigning global var = " + str(var) + " (" + str(var_ln) + ")")
 
                 ######################
                 # Variables utilised #
                 ######################
                 
                 in_brackets = re.search(in_brackets_rx, var_line)
-                
                 # Handle multiple assignments such as in model declarations
                 if in_brackets:
                     vars = re.findall(in_bracket_vars, in_brackets.group(1))
                     for var in vars:
-                        if re.search(sub_rx, var):
-                            subs = re.findall(sub_rx, var) # multiple substitutions
-                            if subs:
-                                for sub in subs:
-                                    used.append(sub)
+                        subs = re.findall(sub_rx, var) # multiple substitutions
+                        if subs:
+                            for sub in subs:
+                                used.append(sub)
                         elif re.search(text_rx, var_line):
                             pass
-                        else:
-                            used.append(var)
                             
                     # Handle embedded functions and quotes
                     embed_line = re.sub(single_quotes_rx, "", var_line) # Single quotes
@@ -660,184 +657,189 @@ with open(sys.argv[1]) as tpl_file:
                             else:
                                 used.append(var)
 
-                if re.search(re_discovery_rx, var_line):
-                    cond = re.search(cond_rx, var_line).group(1)
-                    if "[" in cond or "." in cond:
-                        used.append(re.search(sp_chars_rx, cond).group(1))
+                #if re.search(re_discovery_rx, var_line):
+                cond = re.search(cond_rx, var_line)
+                if cond:
+                    var = cond.group(1)
+                    if "[" in var or "." in var:
+                        used.append(re.search(sp_chars_rx, var).group(1))
                     else:
-                        used.append(cond)
+                        used.append(var)
 
-                    subs = re.search(subs_rx, var_line) # Substitution vars
-                    if subs:
-                        used.append(subs.group(1))
+                # variables acting as substitutes
+                subs = re.search(subs_rx, var_line)
+                if subs:
+                    used.append(subs.group(1))
 
-                if re.search(sub_rx, line):
-                    used.append(re.search(sub_rx, line).group(1))
+                '''
+                Looking for %---% substitutions, can include log files so we use
+                full line here.
+                '''
+                sub = re.search(sub_rx, line)
+                if sub:
+                    used.append(sub.group(1))
 
-                if re.search(model_re_rx, var_line):
-                    used.append(re.search(model_re_rx, var_line).group(1))
+                model_re = re.search(model_re_rx, var_line)
+                if model_re:
+                    used.append(model_re.group(1))
 
-                if re.search(list_rx, var_line):
-                    var = re.search(list_var, var_line).group(1)
+                list_var = re.search(list_rx, var_line)
+                if list_var:
+                    var = list_var.group(1)
                     if "[" in var or "." in var:
                         used.append(re.search(sp_chars_rx, var_line).group(1))
                     else:
                         used.append(var)
-                    
-                    subs = re.search(subs_rx, var_line)
-                    if subs:
-                        used.append(subs.group(1))
 
-                if re.search(":=\s*(\w+)\+?.*[;,]", var_line):
-                    var = re.search(":=\s*(\w+)\+?.*[;,]", var_line).group(1)
+                var_plus = re.search(var_plus_rx, var_line)
+                if var_plus:
+                    var = var_plus.group(1)
                     if var == "text":
                         if "%" in line:
-                            vars = re.findall("%(\w+)%", var_line)
+                            vars = re.findall(sub_rx, var_line)
                             for var in vars:
-                                if "." in var:
-                                    used.append(re.search("(\w+)\.", var).group(1))
+                                if "[" in var or "." in var:
+                                    used.append(re.search(sp_chars_rx, var).group(1))
                                 else:
                                     used.append(var)
-                        #else:
-                            #used.append(re.search(":=\s*text\.\w+\(\s*(\w+)\+?.*[;,]", var_line).group(1))
                     else:
-                        used.append(re.search(":=\s*(\w+)\+?.*[;,]", var_line).group(1))
+                        used.append(var)
 
-                if re.search("\.(result|content)", var_line):
-                    used.append(re.search("(\w+)\.(result|content)", var_line).group(1))
+                result = re.search(result_rx, var_line)
+                if result:
+                    used.append(result.group(1))
 
-                if re.search("^\s*for\s*\S+\s+in\s+\w+", var_line):
-                    cond = re.search("^\s*for\s*\S+\s*in\s*(\w+)", var_line).group(1)
+                for_in = re.search(for_in_rx, var_line)
+                if for_in:
+                    cond = for_in.group(1)
                     if "(" in cond:
-                        used.append(re.search("\((\S+),", cond).group(1))
+                        used.append(re.search(list_var, cond).group(1))
                     elif "." in cond:
-                        used.append(re.search("(\w+)\.", cond).group(1))
+                        used.append(re.search(sp_chars_rx, cond).group(1))
                     elif "[" in cond:
-                        used.append(re.search("(\w+)\[", cond).group(1))
-                        used.append(re.search("\[(\w+)", cond).group(1))
+                        used.append(re.search(sp_chars_rx, cond).group(1))
+                        used.append(re.search(square_bracket_rx, cond).group(1))
                     elif cond == "text":
-                            #print "line " + str(var_ln) + ": var = " + str(cond)
-                            cond = re.findall("^\s*if\s+text\.\w+\((\w+)", var_line)
-                            for var in cond:
-                                used.append(var)
+                        cond = re.findall(if_text_rx, var_line)
+                        for var in cond:
+                            used.append(var)
                     else:
                         used.append(cond)
 
-                if re.search(if_rx, var_line):
-                    if re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", var_line):
-                        cond = re.search("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))", var_line).group(3)
-                        if "." in cond:
-                            used.append(re.search("(\w+)\.", cond).group(1))
-                        elif "[" in cond:
-                            used.append(re.search("(\w+)\[", cond).group(1))
-                            used.append(re.search("\[(\w+)", cond).group(1))
-                        elif cond == "not":
-                            if re.search("^\s*if\s*\(\s*not\s*\(\s*(\w+)", var_line):
-                                cond = re.search("^\s*if\s*\(\s*not\s*\(\s*(\w+)", var_line).group(1)
-                                used.append(cond)
-                        elif cond == "text":
-                            #print "line " + str(var_ln) + ": var = " + str(cond)
-                            cond = re.findall("^\s*if\s+text\.\w+\((\w+)", var_line)
-                            for var in cond:
+                if_line = re.search(if_line_rx, var_line)
+                if if_line:
+                    cond = re.search(if_line_rx, var_line)
+                    if cond:
+                        var = cond.group(3)
+                        if "." in var:
+                            used.append(re.search(sp_chars_rx, var).group(1))
+                        elif "[" in var:
+                            used.append(re.search(sp_chars_rx, var).group(1))
+                            used.append(re.search(square_bracket_rx, var).group(1))
+                        elif var == "not":
+                            if_not = (if_not_rx, var_line)
+                            if if_not:
+                                var = if_not.group(1)
+                                used.append(var)
+                        elif var == "text":
+                            vars = re.findall(if_text_rx, var_line)
+                            for var in vars:
                                 used.append(var)
                         else:
-                            used.append(cond)
+                            used.append(var)
 
-                    has_substring = re.search("has\s*substring\s*(\w+)", var_line)
+                    has_substring = re.search(has_substring_rx, var_line)
                     if has_substring:
                         used.append(has_substring.group(1))
 
-                    matches_regex = re.search("matches\s+regex\s*(\w+)", var_line)
+                    matches_regex = re.search(matches_regex_rx, var_line)
                     if matches_regex:
                         used.append(matches_regex.group(1))
 
-                    or_or = re.match("(?:(\".*)|\s+or\s+(\w+))", var_line)
+                    or_or = re.match(or_rx, var_line)
                     if or_or:
                         used.append(or_or.group(2))
                         
-                    if_quotes = re.sub("[\"']([^\"']*)[\"']", "", var_line)
+                    if_quotes = re.sub(quotes_rx, "", var_line)
                     if if_quotes:
                         pass
                     else:
-                        and_and = re.search("\s+and\s+(not\s+)?(\w+)", var_line)
+                        and_and = re.search(and_rx, var_line)
                         if and_and:
                             used.append(and_and.group(2))
 
-                    equals = re.search("=\s*(\w+)", var_line)
-                    if equals and equals.group(1) == "text":
-                        equals = re.search("=\s+text\.\w+\((\w+)", var_line)
-
+                    equals = re.search(equals_rx, var_line)
                     if equals:
                         used.append(equals.group(1))
 
-                    not_in = re.search("not\s+in\s+(\w+)", var_line)
+                    not_in = re.search(not_in_rx, var_line)
                     if not_in:
                         used.append(not_in.group(1))
                 
                 for var in used:
-                    #print "var used: " + str(var) + " (" + str(var_line) + ")"
+                    '''
+                    Now we check all used variables against variable initialisations.
+                    If they used and not initialised, or initialised within an if block.
+                    '''
+                    
                     # Get actual line number
                     if assigner > 1:
-                        in_brackets = re.search("\((.*)\)", var_line)
+                        in_brackets = re.search(in_brackets_rx, var_line)
                         if in_brackets:
                             get_ln = re.compile("\$(\d+)\$\s+\S+\s*:=\s*%s,?"%var)
                             if re.search(get_ln, var_line):
                                 var_ln = re.search(get_ln, var_line).group(1)
-                            # vars = re.findall(":=\s*(\S+),?", var_line)
-                            # for index, value in enumerate(reversed(vars)):
-                                # if value == var:
-                                    # var_ln = line_num - index
 
-                    if re.match("^[0-9]", var):
-                        pass # Variable is a number
+                    if re.match(numeric_rx, var):
+                        pass # Variable is an integer value
                             
-                    # This fudge garauntees removal of any variables declared outside of an if/for loop
                     elif var not in global_vars:
-                        #print ("var - " + str(var) + ", line " + str(var_ln) + ": " + str(var_line))
-                        #print global_vars
-                        #print "======================================"
+                        '''
+                        The variable may be previously initialised, but then gets
+                        re-initialised inside the if-block, so we check against our
+                        global list.
+                        '''
 
+                        # Variable just not initialised at all
                         if var not in varlist:
-                            #print ("line " + str(var_ln) + ": " + str(var_line))
-                            #print varlist
-                            #print "======================================"
                             initlist.append(str(var_ln) + ": " + str(var))
 
-                        # print warn_list
                         same_block = False
                         new_if_block = False
+                        
+                        # Check variables inside the if-block
                         for warn in warn_list:
-                            if var in warn:
-                                block_no = warn[0]
-                                #print warn
-                                #print ("if_eval (" + str(if_eval) + "), for_eval (" + str(for_eval) + ")")
-                                #print ("line " + str(var_ln) + ": " + str(var_line))
+
+                            if warn.variable == var:
+                                '''
+                                if a variable is on our warnlist, and the current variable
+                                matches it, we are interested
+                                '''
                                 
-                                if if_eval == 0:
-                                    # This is to catch variables declared in an if group, called outside of the evaluation
-                                    #print var
-                                    #print "=========================================="
+                                if warn.eval == 0:
+                                    '''
+                                    if the current variable is outside the if-block then
+                                    this is definitely a valid warning.
+                                    '''
                                     var_warn.append(str(var_ln) + ": " + str(var))
                                 
-                                if (if_block == block_no):
-                                    #print ("line " + str(var_ln) + ": " + str(var_line))
-                                    # Var is in the same block
-                                    #print ("if_block (" + str(if_block) + ") or for_block (" + str(for_block) + ") = block_no (" + str(block_no) + ")")
+                                if if_block == warn.block:
+                                    #We're still inside the same if-block, we don't need a warning.
                                     same_block = True
                                 
-                                if (if_block > block_no):
+                                if if_block > warn.block:
+                                    '''
+                                    The warning variable is inside an if-block earlier to
+                                    the current if-block therefore it needs a warning.
+                                    '''
                                     new_if_block = True
 
-                        '''
-                        This takes place outside of for loop as a var may be assigned twice but still be valid in the same
-                        block, so we have to check that it is both not the same block and that it is a new block
-                        '''
                         if not same_block and new_if_block:
-                            #print "Not same block"
-                            #print ("var warning: " + str(warn) + ", if_block = " + str(if_block) + ", for_block = " + str(for_block) + ", block_no = " + str(block_no))
-                            #print ("line " + str(var_ln) + ": " + str(var_line))
-                            #print warn_list
-                            #print ("==========================================")
+                            '''
+                            This takes place outside of for loop as a var may be assigned
+                            twice but still be valid in the same block, so we have to check
+                            that it is both not the same block and that it is a new block.
+                            '''
                             var_warn.append(str(var_ln) + ": " + str(var))
 
                 var_line = ""
@@ -863,11 +865,11 @@ with open(sys.argv[1]) as tpl_file:
         if not ignore_text:
 
             # Table declarations
-            end_table = re.search("^\s*end\stable;", row)
+            end_table = re.search(end_table_rx, row)
             if end_table:
                 rev_endtable_count, rev_table_eval = sections.open_match(rev_endtable_count, rev_table_eval)
 
-            table = re.search("^\s*table\s+\w+\s+\d+\.\d", row)
+            table = re.search(table_rx, row)
             if table:
                 rev_table_count, rev_table_eval = sections.close_match(rev_table_count, rev_table_eval)
                 rev_table_eval = loops.loop_eval(rev_table_eval, rev_table_err, rev_line_num)
@@ -880,8 +882,8 @@ with open(sys.argv[1]) as tpl_file:
         if rev_patt_parse:
 
             # Dev notes evaluation
-            if re.match("^\s*[\"\'][\"\'][\"\']", row):
-                if re.match("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']", row):
+            if re.match(comment_block_rx, row):
+                if re.match(comment_block_line_rx, row):
                     ignore_text = False
                 if open_notes == 0:
                     ignore_text = True
@@ -908,9 +910,9 @@ with open(sys.argv[1]) as tpl_file:
                     rev_if_count, rev_if_eval = sections.close_match(rev_if_count, rev_if_eval)
                     rev_if_eval = loops.loop_eval(rev_if_eval, rev_if_err, rev_line_num)
                 # Check FOR evaluations
-                if re.match("^\s*end\sfor\s*;", row):
+                if re.match(end_for_rx, row):
                     rev_endfor_count, rev_for_eval = sections.open_match(rev_endfor_count, rev_for_eval)
-                if re.match("^\s*for\s.*do", row):
+                if re.match(for_rx, row):
                     rev_for_count, rev_for_eval = sections.close_match(rev_for_count, rev_for_eval)
                     rev_for_eval = loops.loop_eval(rev_for_eval, rev_for_err, rev_line_num)
 
