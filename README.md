@@ -2,7 +2,7 @@
 
 ## Version
 
-0.1.7 (alpha)
+0.1.8 (alpha)
 
 ## Description
 
@@ -50,7 +50,6 @@ $ python tplser.py file.tpl
 * search syntax
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
-* Needs function for splitting up of text strings and variable declarations for accidental false positive matches
 * Syntax causing ECA errors
 
 ### Nice To Have:
@@ -71,6 +70,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Alpha | 0.1.8 | Some more code cleanup and modules added.<br>Fixed false positive matches where mixed apostrophe/quotes used in line. |
 | Alpha | 0.1.7 | Moved regexes to compile functions in order to simplify code and eliminate duplication. |
 | Alpha | 0.1.6 | Bug fixes.<br>New code to evaluate multiple conditions in trigger statement. |
 | Alpha | 0.1.5 | Check for syntax that would cause ECA Error - concatenation in a log statement.<br>Checks for invocations after a stop.<br>Fixed bug with configuration variable being assigned 0 length string.<br>Fixed imports not added to variable list. |
