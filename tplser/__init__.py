@@ -1,14 +1,6 @@
-import attributes
-import body
-import evaluate
-import loops
-import missing
-import pattern
+import evaluations
 import printing
-import sections
 import tplfile
-import ulist
-import warning
 import ifblock
-import noteblock
-import specialsections
+import sectionparse
+import commentparse
