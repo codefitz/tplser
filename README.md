@@ -51,6 +51,7 @@ $ python tplser.py file.tpl
 * Code clean-up and OO optimisation
 * CMDB cdm patterns
 * Syntax causing ECA errors
+* Remove superfluous characters warning
 
 ### Nice To Have:
 
@@ -59,6 +60,7 @@ $ python tplser.py file.tpl
 * Check imported tpl syntax (external tpl)
 * Handle packages with multiple tpl files
 * GUI
+* Check for node syntax that require an attribute to output
 
 ## Licensing
 
