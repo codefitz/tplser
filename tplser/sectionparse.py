@@ -40,13 +40,13 @@ def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_nu
         else:
             num += 1
             eval -= 1
-            eval = evaluations.loop_eval(eval, err, line_num)
+            eval, err = evaluations.loop_eval(eval, err, line_num)
             parse = False
     if re.match("^\s*end\spattern;", line):
         if direction:
             end_num += 1
             eval -= 1
-            eval = evaluations.loop_eval(eval, err, line_num)
+            eval, err = evaluations.loop_eval(eval, err, line_num)
             parse = False 
         else:
             num += 1
@@ -66,13 +66,13 @@ def body_parse(direction, line, num, end_num, eval, parse, err, line_num):
         else:
             num += 1
             eval -= 1
-            eval = evaluations.loop_eval(eval, err, line_num)
+            eval, err = evaluations.loop_eval(eval, err, line_num)
             parse = False
     elif re.match("^\s*end\sbody;", line):
         if direction:
             end_num += 1
             eval -= 1
-            eval = evaluations.loop_eval(eval, err, line_num)
+            eval, err = evaluations.loop_eval(eval, err, line_num)
             parse = False
         else:
             num += 1

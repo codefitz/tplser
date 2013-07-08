@@ -1,8 +1,9 @@
 def print_eval(section, open, close, clause, err, rev_err):
     if (open == close):
-        print (" *Even number of " + clause + " (" + str(open) + "), but you've done something really wrong...")
+        print (" * Even number of " + clause + " (" + str(open) + "), but you've done something really wrong...")
+        print ("   (Check closing statements across patterns/bodys.)")
     else:
-        print (" *Odd number of " + clause + " found! " + str(section) + " = " + str(open) + "; end " + str(section) + " = " + str(close) +":")
+        print (" * Odd number of " + clause + " found! " + str(section) + " = " + str(open) + "; end " + str(section) + " = " + str(close) +":")
 
     if (err):
         for line_err in err:

@@ -47,10 +47,10 @@ with open(sys.argv[1]) as tpl_file:
     defins_var, ob_line, trig_line, import_line, var_line, no_quotes, config_var = [""]*7
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    global_vars, varlist = ([] for i in range(2))
+    global_vars, varlist, if_close_pattern = ([] for i in range(3))
     
     # Pre-defined TPL Keywords
-    keyword_list = ['discovery', 'import', 'module', 'overrides', 'end', 'then', 'on', 'from', 'log', 'search', 'do', 'definitions', 'aged', 'as', 'at', 'break', 'by', 'continue', 'created', 'default', 'defined', 'deleted', 'desc', 'exists', 'expand', 'explode', 'false', 'flags', 'is', 'locale', 'modified', 'nodecount', 'nodes', 'none', 'order', 'out', 'processwith', 'relationship', 'removal', 'requires', 'show', 'step', 'stop', 'substring', 'subword', 'summary', 'tags', 'taxonomy', 'traverse', 'true', 'unconfirmed', 'with', 'where', 'matches', 'and', 'not', 'or', 'has', 'in', 'raw', 'regex', 'unix_cmd', 'windows_cmd', 'tpl', 'identify', 'constants', 'pattern', 'triggers', 'body', 'table', 'configuration', 'metadata', 'define', 'overview', 'if', 'for', 'else', 'elif']
+    keyword_list = ['model', 'discovery', 'import', 'module', 'overrides', 'end', 'then', 'on', 'from', 'log', 'search', 'do', 'definitions', 'aged', 'as', 'at', 'break', 'by', 'continue', 'created', 'default', 'defined', 'deleted', 'desc', 'exists', 'expand', 'explode', 'false', 'flags', 'is', 'locale', 'modified', 'nodecount', 'nodes', 'none', 'order', 'out', 'processwith', 'relationship', 'removal', 'requires', 'show', 'step', 'stop', 'substring', 'subword', 'summary', 'tags', 'taxonomy', 'traverse', 'true', 'unconfirmed', 'with', 'where', 'matches', 'and', 'not', 'or', 'has', 'in', 'raw', 'regex', 'unix_cmd', 'windows_cmd', 'tpl', 'identify', 'constants', 'pattern', 'triggers', 'body', 'table', 'configuration', 'metadata', 'define', 'overview', 'if', 'for', 'else', 'elif', 'function']
     
     global_vars += keyword_list
     
@@ -218,7 +218,7 @@ with open(sys.argv[1]) as tpl_file:
             if end_table:
                 endtable_count, table_eval = sectionparse.close_match(
                     endtable_count, table_eval)
-                table_eval = evaluations.loop_eval(table_eval, table_err, line_num)
+                table_eval, table_err = evaluations.loop_eval(table_eval, table_err, line_num)
 
             # Configuration evaluation
             option = False # Not actually  used her for config statement
@@ -365,6 +365,23 @@ with open(sys.argv[1]) as tpl_file:
 
         # If inside pattern
         if pattern_parsing:
+        
+            '''
+                Check number of if statements where odd number of evaluations equals 
+                even numbers where even number of patterns exist.
+                This resets the count, the next evaluation will fail but at least
+                there is an indicator that something is wrong.
+            '''
+            if endpattern_num > 0:
+                if not pattern_name == last_pattern:
+                    if if_eval > 0:
+                        if_eval = 0
+                    last_pattern = pattern_name
+                    if for_eval > 0:
+                        for_eval = 0
+                    last_pattern = pattern_name
+            else:
+                last_pattern = pattern_name
 
             # Overview evaluation
             if re.match(overview_rx, line):
@@ -433,16 +450,22 @@ with open(sys.argv[1]) as tpl_file:
         
             # Check IF evaluations
             if re.match(if_rx, line):
+                #print(str(line_num) + ": if_eval (" + str(if_eval) + ")")
                 if_count, if_eval = sectionparse.open_match(if_count, if_eval)
+                #print(str(line_num) + ": if_eval (" + str(if_eval) +"): " + str(line))
+                #print(str(line_num) + ": if_err (" + str(if_err) + ")")
             if re.match(end_if_rx, line):
+                #print(str(line_num) + ": if_eval (" + str(if_eval) + ")")
                 endif_count, if_eval = sectionparse.close_match(endif_count, if_eval)
-                if_eval = evaluations.loop_eval(if_eval, if_err, line_num)
+                if_eval, if_err = evaluations.loop_eval(if_eval, if_err, line_num)
+                #print(str(line_num) + ": if_eval (" + str(if_eval) +"): " + str(line))
+                #print(str(line_num) + ": if_err (" + str(if_err) + ")")
             # Check FOR evaluations
             if re.match(for_rx, line):
                 for_count, for_eval = sectionparse.open_match(for_count, for_eval)
             if re.match(end_for_rx, line):
                 endfor_count, for_eval = sectionparse.close_match(endfor_count, for_eval)
-                for_eval = evaluations.loop_eval(for_eval, for_err, line_num)
+                for_eval, for_err = evaluations.loop_eval(for_eval, for_err, line_num)
 
             # Check for syntax errors with the 'stop;' statement
             if if_eval > 0 and "stop;" in line:
@@ -726,25 +749,23 @@ with open(sys.argv[1]) as tpl_file:
 
                 if_line = re.search(if_line_rx, var_line)
                 if if_line:
-                    cond = re.search(if_line_rx, var_line)
-                    if cond:
-                        var = cond.group(3)
-                        if "." in var:
-                            used.append(re.search(sp_chars_rx, var).group(1))
-                        elif "[" in var:
-                            used.append(re.search(sp_chars_rx, var).group(1))
-                            used.append(re.search(square_bracket_rx, var).group(1))
-                        elif var == "not":
-                            if_not = (if_not_rx, var_line)
-                            if if_not:
-                                var = if_not.group(1)
-                                used.append(var)
-                        elif var == "text":
-                            vars = re.findall(if_text_rx, var_line)
-                            for var in vars:
-                                used.append(var)
-                        else:
+                    var = if_line.group(3)
+                    if "." in var:
+                        used.append(re.search(sp_chars_rx, var).group(1))
+                    elif "[" in var:
+                        used.append(re.search(sp_chars_rx, var).group(1))
+                        used.append(re.search(square_bracket_rx, var).group(1))
+                    elif var == "not":
+                        if_not = (if_not_rx, var_line)
+                        if if_not:
+                            var = if_not.group(1)
                             used.append(var)
+                    elif var == "text":
+                        vars = re.findall(if_text_rx, var_line)
+                        for var in vars:
+                            used.append(var)
+                    else:
+                        used.append(var)
 
                     has_substring = re.search(has_substring_rx, var_line)
                     if has_substring:
@@ -872,7 +893,7 @@ with open(sys.argv[1]) as tpl_file:
             if table:
                 rev_table_count, rev_table_eval = sectionparse.close_match(
                     rev_table_count, rev_table_eval)
-                rev_table_eval = evaluations.loop_eval(
+                rev_table_eval, rev_table_err = evaluations.loop_eval(
                     rev_table_eval, rev_table_err, rev_line_num)
 
             # Pattern evaluation
@@ -903,7 +924,7 @@ with open(sys.argv[1]) as tpl_file:
                 if re.match(if_rx, row):
                     rev_if_count, rev_if_eval = sectionparse.close_match(
                         rev_if_count, rev_if_eval)
-                    rev_if_eval = evaluations.loop_eval(
+                    rev_if_eval, rev_if_err = evaluations.loop_eval(
                         rev_if_eval, rev_if_err, rev_line_num)
                 # Check FOR evaluations
                 if re.match(end_for_rx, row):
@@ -912,7 +933,7 @@ with open(sys.argv[1]) as tpl_file:
                 if re.match(for_rx, row):
                     rev_for_count, rev_for_eval = sectionparse.close_match(
                         rev_for_count, rev_for_eval)
-                    rev_for_eval = evaluations.loop_eval(
+                    rev_for_eval, rev_for_err = evaluations.loop_eval(
                         rev_for_eval, rev_for_err, rev_line_num)
 
 tpl_file.close()
