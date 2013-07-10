@@ -50,7 +50,7 @@ with open(sys.argv[1]) as tpl_file:
     global_vars, varlist, if_close_pattern = ([] for i in range(3))
     
     # Pre-defined TPL Keywords
-    keyword_list = ['model', 'discovery', 'import', 'module', 'overrides', 'end', 'then', 'on', 'from', 'log', 'search', 'do', 'definitions', 'aged', 'as', 'at', 'break', 'by', 'continue', 'created', 'default', 'defined', 'deleted', 'desc', 'exists', 'expand', 'explode', 'false', 'flags', 'is', 'locale', 'modified', 'nodecount', 'nodes', 'none', 'order', 'out', 'processwith', 'relationship', 'removal', 'requires', 'show', 'step', 'stop', 'substring', 'subword', 'summary', 'tags', 'taxonomy', 'traverse', 'true', 'unconfirmed', 'with', 'where', 'matches', 'and', 'not', 'or', 'has', 'in', 'raw', 'regex', 'unix_cmd', 'windows_cmd', 'tpl', 'identify', 'constants', 'pattern', 'triggers', 'body', 'table', 'configuration', 'metadata', 'define', 'overview', 'if', 'for', 'else', 'elif', 'function']
+    keyword_list = ['model', 'discovery', 'import', 'module', 'overrides', 'end', 'then', 'on', 'from', 'log', 'search', 'do', 'definitions', 'aged', 'as', 'at', 'break', 'by', 'continue', 'created', 'default', 'defined', 'deleted', 'desc', 'exists', 'expand', 'explode', 'false', 'flags', 'is', 'locale', 'modified', 'nodecount', 'nodes', 'none', 'order', 'out', 'processwith', 'relationship', 'removal', 'requires', 'show', 'step', 'stop', 'substring', 'subword', 'summary', 'tags', 'taxonomy', 'traverse', 'true', 'unconfirmed', 'with', 'where', 'matches', 'and', 'not', 'or', 'has', 'in', 'raw', 'regex', 'unix_cmd', 'windows_cmd', 'tpl', 'identify', 'constants', 'pattern', 'triggers', 'body', 'table', 'configuration', 'metadata', 'define', 'overview', 'if', 'for', 'else', 'elif', 'function', 'text', 'time']
     
     global_vars += keyword_list
     
@@ -660,6 +660,11 @@ with open(sys.argv[1]) as tpl_file:
                     embed_line = re.sub(double_quotes_rx, "", embed_line) # Double quotes
                     embeds = embed_line.count('(')
                     bcount = var_line.count('(')
+                    '''
+                        This is kind of a workaround for functions being used, but
+                        ultimately there needs to be some syntax checking for functions
+                        themselves.
+                    '''
                     if re.search(model_rx, var_line):
                         pass
                     elif re.search(log_rx, var_line):
@@ -667,6 +672,8 @@ with open(sys.argv[1]) as tpl_file:
                     elif re.search(search_rx, var_line):
                         pass
                     elif re.search(time_rx, var_line):
+                        pass
+                    elif re.search(text_rx, var_line):
                         pass
                     elif embeds > 0 and not embeds == bcount:
                         vars = re.findall(embed_vars, embed_line)
@@ -709,6 +716,8 @@ with open(sys.argv[1]) as tpl_file:
                     var = list_var.group(1)
                     if "[" in var or "." in var:
                         used.append(re.search(sp_chars_rx, var_line).group(1))
+                    elif "%" in var:
+                        pass # Just ignoring %...% subs, these will be checked in other function
                     else:
                         used.append(var)
 
