@@ -2,15 +2,14 @@
 
 ## Version
 
-0.1.8 (alpha)
+0.1.9 (Beta)
 
 ## Description
 
 A TPL pattern language parser for BMC's Atrium Discovery and Dependency Mapping (ADDM). Developed with Python 2.6, 2.7
 
-Code is still alpha so...
-- PDB debugging enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
-- Parsing is working for items listed, but may still be subject to some bugs and not everything is checked - please submit an issue with sample TPL in order to prioritise fix/implementation.
+- PDB debugging is included (off by default) and can be enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
+- Bugs: Please submit an issue with sample TPL in order to prioritise fix/implementation.
 
 ---
 
@@ -26,7 +25,7 @@ $ python tplser.py file.tpl
 
 ## Development
 
-### Works:
+### Working:
 
 * IF evaluation parsing
 * FOR loop parsing
@@ -39,19 +38,22 @@ $ python tplser.py file.tpl
 * If statement handling of else/elif on uninitialised variables
 * ECA error check for concatenation of strings in a log statement
 * Invocations after a `stop;`
+* Checks for redefined constant variables
 
-### Will Eventually Work:
+### Planned:
 
 * Section headers: simple identities, business application instances
 * Syntax: typo catching
-* keyword checking
 * table syntax
 * discovery function syntax
 * search syntax
-* Code clean-up and OO optimisation
 * CMDB cdm patterns
-* Syntax causing ECA errors
+* Catching ECA errors (not found by ADDM inbuilt parser)
 * Remove superfluous characters warning
+* Infinite looped assignments e.g.
+>   var := var + something;
+* Can't use """ inside body.
+* Definitions block variables separation into definition name/define name/defined vars
 
 ### Nice To Have:
 
@@ -68,10 +70,9 @@ Apache 2.0 License - see LICENSE file.
 
 ## Updates
 
-### Alpha
-
 | Release | Version | Description |
 | --- | --- | --- |
+| Beta | 0.1.9 | Checking for redefined constants variable assignments.<br>Open/closing brackets count.<br>Fixed where undeclared variables getting missed where declared in another pattern. |
 | Alpha | 0.1.8 | Some more code cleanup and modules added.<br>Fixed false positive matches where mixed apostrophe/quotes used in line. |
 | Alpha | 0.1.7 | Moved regexes to compile functions in order to simplify code and eliminate duplication. |
 | Alpha | 0.1.6 | Bug fixes.<br>New code to evaluate multiple conditions in trigger statement. |

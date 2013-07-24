@@ -6,7 +6,7 @@ pattern_list = []
     Function to handle configuration, definition and other special sections of
     TPL pattern.
 '''
-def section(start_rx, end_rx, line, eval, var_rx, global_vars, option, tpl_parsing):
+def section(start_rx, end_rx, line, eval, var_rx, global_vars, option, tpl_parsing, vars):
     start = re.search(start_rx, line)
     if start:
         option = True
@@ -14,6 +14,7 @@ def section(start_rx, end_rx, line, eval, var_rx, global_vars, option, tpl_parsi
         var = re.match(var_rx, line)
         if var:
             global_vars.append(var.group(1))
+            vars.append(var.group(1))
         tpl_parsing = True
 
     end = re.search(end_rx, line)
@@ -22,12 +23,12 @@ def section(start_rx, end_rx, line, eval, var_rx, global_vars, option, tpl_parsi
         eval -= 1
         tpl_parsing = False
     
-    return tpl_parsing, global_vars, option
+    return tpl_parsing, global_vars, option, vars
 
 '''
     Function for parsing the pattern block.
 '''
-def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_num):
+def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_num, varlist):
     if re.match("^\s*pattern\s\S+\s\d+\.\d", line):
         if direction:
             pname = re.findall("pattern\s(.*\s\d+\.\d)", line)
@@ -37,6 +38,7 @@ def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_nu
             num += 1
             eval += 1
             parse = True
+            varlist = []
         else:
             num += 1
             eval -= 1
@@ -52,7 +54,7 @@ def pattern_parse(name, direction, line, num, end_num, eval, parse, err, line_nu
             num += 1
             eval += 1
             parse = True
-    return name, num, end_num, eval, parse, err, pattern_list
+    return name, num, end_num, eval, parse, err, pattern_list, varlist
 
 '''
     Function to parse the body section.

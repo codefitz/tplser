@@ -47,111 +47,105 @@ with open(sys.argv[1]) as tpl_file:
     defins_var, ob_line, trig_line, import_line, var_line, no_quotes, config_var = [""]*7
 
     # For storing custom variables declared in pattern, predefined keywords added here:
-    global_vars, varlist, if_close_pattern = ([] for i in range(3))
+    global_vars, total_vars, varlist, if_close_pattern, constant_vars, vars_assigned, utilised, model_lines, config_funcs, defins_funcs = ([] for i in range(10))
     
     # Pre-defined TPL Keywords
     keyword_list = ['model', 'discovery', 'import', 'module', 'overrides', 'end', 'then', 'on', 'from', 'log', 'search', 'do', 'definitions', 'aged', 'as', 'at', 'break', 'by', 'continue', 'created', 'default', 'defined', 'deleted', 'desc', 'exists', 'expand', 'explode', 'false', 'flags', 'is', 'locale', 'modified', 'nodecount', 'nodes', 'none', 'order', 'out', 'processwith', 'relationship', 'removal', 'requires', 'show', 'step', 'stop', 'substring', 'subword', 'summary', 'tags', 'taxonomy', 'traverse', 'true', 'unconfirmed', 'with', 'where', 'matches', 'and', 'not', 'or', 'has', 'in', 'raw', 'regex', 'unix_cmd', 'windows_cmd', 'tpl', 'identify', 'constants', 'pattern', 'triggers', 'body', 'table', 'configuration', 'metadata', 'define', 'overview', 'if', 'for', 'else', 'elif', 'function', 'text', 'time']
-    
-    global_vars += keyword_list
-    
+
     # This is a hack to get correct number in summary.
-    keywords = len(global_vars)
+    keywords = len(keyword_list)
     
     # Regex for matching syntax
-    module_rx = re.compile("tpl\s\d\.\d\smodule\s\S+;")
-    tpl_ver_rx = re.compile("tpl\s+(\d+\.\d)")
-    metadata_rx = re.compile("^\s*metadata\s*$")
-    end_metadata_rx = re.compile("^\s*end\smetadata;")
-    import_rx = re.compile("^\s*from\s+\S+\s+import\s+(\w+)")
-    import_var_rx = re.compile("(\w+)\s+\d+\.\d")
-    table_rx = re.compile("^\s*table\s+\w+\s+\d+\.\d")
-    table_vars_rx = re.compile("^\s*table\s+(\w+)\s+\d+\.\d")
-    end_table_rx = re.compile("^\s*end\stable;")
+    and_rx = re.compile("\s+and\s+(not\s+)?(\w+)")
+    comment_block_line_rx = re.compile("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']")
+    comment_block_rx = re.compile("^\s*[\"\'][\"\'][\"\']")
+    cond_rx = re.compile("\((\w+),")
+    conditional_equals_rx = re.compile("((?:and\s+|or\s+|)\w+\s*=\s*%)")
+    conditionals_rx = re.compile("((?:and\s+|or\s+|)\w+\s+matches(?:\s+\w+)?\s*%)")
     config_rx = re.compile("^\s*configuration\s+\w+\s+\d+\.\d")
     config_var_rx = re.compile("^\s*configuration\s+(\w+)\s+\d+\.\d")
-    end_config_rx = re.compile("^\s*end\sconfiguration;")
-    definitions_rx = re.compile("^\s*definitions\s+\w+\s+\d+\.\d")
-    def_vars_rx = re.compile("^\s*definitions\s+(\w+)\s+\d+\.\d")
-    end_definitions_rx = re.compile("^\s*end\sdefinitions;")
-    def_var_rx = re.compile("^\s*define\s+(\w+)\(")
+    constants_rx = re.compile("^\s*constants\s*$")
     def_return_rx = re.compile("->\s*(.*)\s*$")
-    log_rx = re.compile("\s*log\.\w+\(")
-    discovery_runcmd_rx = re.compile("\s*discovery\.runCommand\(")
+    def_var_rx = re.compile("^\s*define\s+(\w+)\(")
+    def_vars_rx = re.compile("^\s*definitions\s+(\w+)\s+\d+\.\d")
+    definitions_rx = re.compile("^\s*definitions\s+\w+\s+\d+\.\d")
     discovery_fileget_rx = re.compile("\s*discovery\.fileGet\(")
-    discovery_listdir_rx = re.compile("\s*discovery\.listDirectory\(")
     discovery_fileinfo_rx = re.compile("\s*discovery\.fileInfo\(")
+    discovery_listdir_rx = re.compile("\s*discovery\.listDirectory\(")
     discovery_regkey_rx = re.compile("\s*discovery\.registryKey\(")
-    model_si_rx = re.compile("\s*model\.SoftwareInstance\(")
-    model_det_rx = re.compile("\s*model\.Detail\(")
-    identify_rx = re.compile("\s*identify\s+")
-    end_identify_rx = re.compile("^\s*end\s*identify;")
-    trig_node_rx = re.compile(":=\s*(\w+)\s+")
-    trig_cond_rx = re.compile(":=\s*\w+\s+(\w+)\s*")
-    trigger_term_rx = re.compile(":=\s*\w+\s*;")
-    triggers_rx = re.compile("^\s*triggers\s*$")
-    trigger_on_rx = re.compile("^\s*(on\s+\w+\s*:=\s*)")
-    embedded_quotes_rx = re.compile("[\'].?[\"].*?[\']")
-    quotes_rx = re.compile("[\"\'](.*?)[\"\']")
+    discovery_runcmd_rx = re.compile("\s*discovery\.runCommand\(")
     double_quotes_rx = re.compile("[\"].*?[\"]")
-    single_quotes_rx = re.compile("[\'].*?[\']")
-    var_rx = re.compile("^\s*(\w+)")
-    vars_rx = re.compile("\s*(\w+)(?:\s*:=|,)")
-    in_brackets_rx = re.compile("\((.*)\)")
-    if_rx = re.compile("^\s*if\s+")
-    if_then_rx = re.compile("^\s*if.*then\s*$")
+    else_rx = re.compile("^\s*else\s*$")
+    embed_vars = re.compile("\(\s*(\w+),?")
+    embedded_quotes_rx = re.compile("[\'].?[\"].*?[\']")
+    end_config_rx = re.compile("^\s*end\sconfiguration;")
+    end_constants_rx = re.compile("^\s*end\sconstants;")
+    end_definitions_rx = re.compile("^\s*end\sdefinitions;")
+    end_for_rx = re.compile("^\s*end\sfor\s*;")
+    end_identify_rx = re.compile("^\s*end\s*identify;")
     end_if_rx = re.compile("^\s*end\sif\s*;")
+    end_metadata_rx = re.compile("^\s*end\smetadata;")
+    end_overview_rx = re.compile("^\s*end\soverview;")
+    end_table_rx = re.compile("^\s*end\stable;")
+    end_trigger_rx = re.compile("^\s*end\striggers;")
+    equals_rx = re.compile("=\s+text\.\w+\((\w+)")
+    for_in_rx = re.compile("^\s*for\s*\S+\s*in\s*(\w+)")
+    for_rx = re.compile("^\s*for\s+(\S+)\s+in\s+")
+    global_var_rx = re.compile("(\S+)\s*:=")
+    has_substring_rx = re.compile("has\s*substring\s*(\w+)")
+    identify_rx = re.compile("\s*identify\s+")
     if_line_rx = re.compile("^\s*if\s+(size)?\(?(not\s+)?(\w+)(?<!\))")
     if_not_rx = re.compile("^\s*if\s*\(\s*not\s*\(\s*(\w+)")
+    if_rx = re.compile("^\s*if\s+")
     if_text_rx = re.compile("^\s*if\s+text\.\w+\((\w+)")
-    comment_block_rx = re.compile("^\s*[\"\'][\"\'][\"\']")
-    comment_block_line_rx = re.compile("[\"\'][\"\'][\"\'].*[\"\'][\"\'][\"\']")
-    conditionals_rx = re.compile("((?:and\s+|or\s+|)\w+\s+matches(?:\s+\w+)?\s*%)")
-    conditional_equals_rx = re.compile("((?:and\s+|or\s+|)\w+\s*=\s*%)")
-    overview_rx = re.compile("^\s*overview\s*$")
-    tags_rx = re.compile("\s*tags\s+\S+")
-    end_overview_rx = re.compile("^\s*end\soverview;")
-    constants_rx = re.compile("^\s*constants\s*$")
-    global_var_rx = re.compile("(\S+)\s*:=")
-    end_constants_rx = re.compile("^\s*end\sconstants;")
-    end_trigger_rx = re.compile("^\s*end\striggers;")
-    for_rx = re.compile("^\s*for\s+(\S+)\s+in\s+")
-    for_in_rx = re.compile("^\s*for\s*\S+\s*in\s*(\w+)")
-    end_for_rx = re.compile("^\s*end\sfor\s*;")
-    else_rx = re.compile("^\s*else\s*$")
-    syntax_rx = re.compile("^\s*\w+\s*=")
+    if_then_rx = re.compile("^\s*if.*then\s*$")
+    import_rx = re.compile("^\s*from\s+\S+\s+import\s+(\w+)")
+    import_var_rx = re.compile("(\w+)\s+\d+\.\d")
+    in_bracket_vars = re.compile(":=\s*(\w+),?")
+    in_brackets_rx = re.compile("\((.*)\)")
+    inference_rx = re.compile("^\s*inference\.")
     line_num_rx = re.compile("^\s*\$\d+\$(.*)")
     list_rx = re.compile("^\s*list\.")
-    xpath_rx = re.compile("^\s*xpath\.")
-    model_rx = re.compile("(^|:=)\s*model\.")
-    model_re_rx = re.compile("^\s*model\.\w+\((\w+)\);")
-    inference_rx = re.compile("^\s*inference\.")
-    no_match_rx = re.compile("no_match\s*:=")
-    time_rx = re.compile(":=\s*time\.")
-    matches_expand_rx = re.compile("\s*(\S+)\s*:=")
-    in_bracket_vars = re.compile(":=\s*(\w+),?")
-    embed_vars = re.compile("\(\s*(\w+),?")
-    sub_rx = re.compile("%(\w+)%")
-    subs_rx = re.compile("\(\S+\s*,\s*(\w+)\);")
-    text_rx = re.compile(":=\s*text\.")
-    search_rx = re.compile(":=\s*search\s*\(")
-    re_discovery_rx = re.compile(":=\s*(regex\.extract|discovery.*)\s*\((\w+),")
-    cond_rx = re.compile("\((\w+),")
-    sp_chars_rx = re.compile("(\w+),?[\[\.]")
     list_var_rx = re.compile("\(\s*(\S+)?,")
-    var_plus_rx = re.compile(":=\s*(\w+)\+?.*[;,]")
-    result_rx = re.compile("(\w+)\.(result|content)")
-    square_bracket_rx = re.compile("\[(\w+)")
-    has_substring_rx = re.compile("has\s*substring\s*(\w+)")
+    log_rx = re.compile("\s*log\.\w+\(")
+    matches_expand_rx = re.compile("\s*(\S+)\s*:=")
     matches_regex_rx = re.compile("matches\s+regex\s*(\w+)")
-    or_rx = re.compile("(?:(\".*)|\s+or\s+(\w+))")
-    and_rx = re.compile("\s+and\s+(not\s+)?(\w+)")
-    equals_rx = re.compile("=\s+text\.\w+\((\w+)")
+    metadata_rx = re.compile("^\s*metadata\s*$")
+    model_det_rx = re.compile("\s*model\.Detail\(")
+    model_re_rx = re.compile("^\s*model\.\w+\((\w+)\);")
+    model_rx = re.compile("(^|:=)\s*model\.")
+    model_si_rx = re.compile("\s*model\.SoftwareInstance\(")
+    module_rx = re.compile("tpl\s\d\.\d\smodule\s\S+;")
+    no_match_rx = re.compile("no_match\s*:=")
     not_in_rx = re.compile("not\s+in\s+(\w+)")
     numeric_rx = re.compile("^[0-9]")
-    
-    vars_assigned = []
-    utilised = []
-    model_lines = []
+    or_rx = re.compile("(?:(\".*)|\s+or\s+(\w+))")
+    overview_rx = re.compile("^\s*overview\s*$")
+    quotes_rx = re.compile("[\"\'](.*?)[\"\']")
+    re_discovery_rx = re.compile(":=\s*(regex\.extract|discovery.*)\s*\((\w+),")
+    result_rx = re.compile("(\w+)\.(result|content)")
+    search_rx = re.compile(":=\s*search\s*\(")
+    single_quotes_rx = re.compile("[\'].*?[\']")
+    sp_chars_rx = re.compile("(\w+),?[\[\.]")
+    square_bracket_rx = re.compile("\[(\w+)")
+    sub_rx = re.compile("%(\w+)%")
+    subs_rx = re.compile("\(\S+\s*,\s*(\w+)\);")
+    syntax_rx = re.compile("^\s*\w+\s*=")
+    table_rx = re.compile("^\s*table\s+\w+\s+\d+\.\d")
+    table_vars_rx = re.compile("^\s*table\s+(\w+)\s+\d+\.\d")
+    tags_rx = re.compile("\s*tags\s+\S+")
+    text_rx = re.compile(":=\s*text\.")
+    time_rx = re.compile(":=\s*time\.")
+    tpl_ver_rx = re.compile("tpl\s+(\d+\.\d)")
+    trig_cond_rx = re.compile(":=\s*\w+\s+(\w+)\s*")
+    trig_node_rx = re.compile(":=\s*(\w+)\s+")
+    trigger_on_rx = re.compile("^\s*(on\s+\w+\s*:=\s*)")
+    trigger_term_rx = re.compile(":=\s*\w+\s*;")
+    triggers_rx = re.compile("^\s*triggers\s*$")
+    var_plus_rx = re.compile(":=\s*(\w+)\+?.*[;,]")
+    var_rx = re.compile("^\s*(\w+)")
+    vars_rx = re.compile("\s*(\w+)(?:\s*:=|,)")
+    xpath_rx = re.compile("^\s*xpath\.")
 
     for full_line in tpl_file:
         lines.append(full_line.strip())
@@ -221,13 +215,13 @@ with open(sys.argv[1]) as tpl_file:
                 table_eval, table_err = evaluations.loop_eval(table_eval, table_err, line_num)
 
             # Configuration evaluation
-            option = False # Not actually  used her for config statement
-            tpl_parsing, global_vars, option = sectionparse.section(
-                config_rx, end_config_rx, line, config_eval, config_var_rx, global_vars, option, tpl_parsing)
+            option = False # This option is not used by config eval - just a holder for the function
+            tpl_parsing, global_vars, option, config_funcs = sectionparse.section(
+                config_rx, end_config_rx, line, config_eval, config_var_rx, global_vars, option, tpl_parsing, config_funcs)
 
             # Definitions evaluation
-            tpl_parsing, global_vars, defins = sectionparse.section(
-                definitions_rx, end_definitions_rx, line, defins_eval, def_vars_rx, global_vars, defins, tpl_parsing)
+            tpl_parsing, global_vars, defins, defins_funcs = sectionparse.section(
+                definitions_rx, end_definitions_rx, line, defins_eval, def_vars_rx, global_vars, defins, tpl_parsing, defins_funcs)
 
             # Definition statements
             if defins:
@@ -241,12 +235,13 @@ with open(sys.argv[1]) as tpl_file:
                         split_def = str(def_vars.group(1)).split(',')
                         for split_var in split_def:
                             var = str.strip(split_var)
-                            global_vars.append(var)
+                            varlist.append(var)
+                            print "Appending " + str(var) + " to varlist..."
                     if def_returns:
                         split_return = str(def_returns.group(1)).split(',')
                         for split_var in split_return:
                             var = str.strip(split_var)
-                            global_vars.append(var)
+                            varlist.append(var)
 
             # Count of logs
             if re.match(log_rx, line):
@@ -360,9 +355,9 @@ with open(sys.argv[1]) as tpl_file:
                         syntax_errs.append(str(trig_ln) + ": " + str.strip(trig_line))
 
             # Pattern evaluation
-            pattern_name, pattern_num, endpattern_num, patt_eval, pattern_parsing, patt_err, pattern_list = sectionparse.pattern_parse(
-                pattern_name, fwd, line, pattern_num, endpattern_num, patt_eval, pattern_parsing, patt_err, line_num)
-
+            pattern_name, pattern_num, endpattern_num, patt_eval, pattern_parsing, patt_err, pattern_list, varlist = sectionparse.pattern_parse(
+                pattern_name, fwd, line, pattern_num, endpattern_num, patt_eval, pattern_parsing, patt_err, line_num ,varlist)
+                
         # If inside pattern
         if pattern_parsing:
         
@@ -402,10 +397,24 @@ with open(sys.argv[1]) as tpl_file:
 
             # This is just a quick var grab, we're not checking the integrity of constants right now
             if constants and re.search(global_var_rx, line):
-                global_vars.append(re.search(global_var_rx, line).group(1))
+                varlist.append(re.search(global_var_rx, line).group(1))
 
             if re.match(end_constants_rx, line):
                 constants = False
+                
+            # Find redefined variables in constants
+            if constants:
+                if ":=" in line:
+                    #Grab everything to the left of the seperator
+                    left = re.findall("(\S+)\s*:=", line)
+                    for var in left:
+                        if var in constant_vars:
+                            syntax_errs.append(str(line_num) + ", Constant " + str(var) + " has been redefined:\n      " + str.strip(line))
+                        else:
+                            constant_vars.append(var)
+            else:
+                # Reset after section is complete for the next pattern
+                constant_vars = []
 
             # Trigger evaluation
             if re.match(triggers_rx, line):
@@ -415,7 +424,7 @@ with open(sys.argv[1]) as tpl_file:
             # Check for trigger condition
             if re.match(trigger_on_rx, line):
                 trig_on = True
-                global_vars.append(re.search(global_var_rx, line).group(1))
+                varlist.append(re.search(global_var_rx, line).group(1))
 
             if re.search(end_trigger_rx, line):
                 endtrig_count, trig_eval, missing_trig, trig_err, missing_trigon, trig_on_err = sectionparse.close_requireds(
@@ -437,6 +446,7 @@ with open(sys.argv[1]) as tpl_file:
 
                 # Set general TPL parsing
                 tpl_parsing = True
+                #print ("Current valist is:\n" + str(varlist))
 
             else:
                 tpl_parsing = False
@@ -450,16 +460,10 @@ with open(sys.argv[1]) as tpl_file:
         
             # Check IF evaluations
             if re.match(if_rx, line):
-                #print(str(line_num) + ": if_eval (" + str(if_eval) + ")")
                 if_count, if_eval = sectionparse.open_match(if_count, if_eval)
-                #print(str(line_num) + ": if_eval (" + str(if_eval) +"): " + str(line))
-                #print(str(line_num) + ": if_err (" + str(if_err) + ")")
             if re.match(end_if_rx, line):
-                #print(str(line_num) + ": if_eval (" + str(if_eval) + ")")
                 endif_count, if_eval = sectionparse.close_match(endif_count, if_eval)
                 if_eval, if_err = evaluations.loop_eval(if_eval, if_err, line_num)
-                #print(str(line_num) + ": if_eval (" + str(if_eval) +"): " + str(line))
-                #print(str(line_num) + ": if_err (" + str(if_err) + ")")
             # Check FOR evaluations
             if re.match(for_rx, line):
                 for_count, for_eval = sectionparse.open_match(for_count, for_eval)
@@ -491,24 +495,28 @@ with open(sys.argv[1]) as tpl_file:
                 checking. Under development.
             '''
 
+            # Find redefined variables in constants
             # if ":=" in line:
                 #Grab everything to the left of the seperator
                 # left = re.findall("(\S+)\s*:=", line)
-                # for var in left:
-                    # if "model." in var:
-                        # '''Variables assigned in model function are not pattern
-                        # variables and therefore not used elsewhere.'''
-                        # model_lines.append(line)
-                        # pass
-                    # else:
-                        # print("line " + str(line_num) + ": " + str(var))
-                        # vars_assigned.append(var)
+                    # for var in left:
+                        # constant_vars.append(var)
+                        #if "model." in var:
+                            # '''Variables assigned in model function are not pattern
+                            # variables and therefore not used elsewhere.'''
+                            # model_lines.append(line)
+                            # pass
+                        # else:
+                            # print("line " + str(line_num) + ": " + str(var))
+                            # vars_assigned.append(var)
                 #Grab everything to the right of the seperator
-                # right = re.findall(":=(.*)", line)
-                # for var in right:
-                   # if var not in vars_assigned:
-                       # print("line " + str(line_num) + ": " + str(var))
-                # print model_lines
+                #right = re.findall(":=(.*)", line)
+                #for var in right:
+                    #if var not in vars_assigned:
+                        #print("line " + str(line_num) + ": " + str(var))
+            # else:
+                #Reset after section is complete for the next pattern
+                # constant_vars = []
                         
             #######################################################
                 
@@ -602,13 +610,16 @@ with open(sys.argv[1]) as tpl_file:
                 var = ""
                 vars = re.findall(vars_rx, var_line)
                 for var in vars:
+                    #print (str(line_num) + ", assigning var " + str(var) + " to varlist")
                     varlist.append(var)
 
                 var = re.search(for_rx, var_line)
                 if var:
                     for_block = True
+                    #print (str(line_num) + ", assigning var " + str(var) + " to varlist")
                     varlist.append(var.group(1))
                 
+                # Get full count so that varlist can be reset with each pattern
                 '''
                 I can't recall why this is needed
                 
@@ -630,7 +641,10 @@ with open(sys.argv[1]) as tpl_file:
                         warn_list.append(warn)
                         for_block = False
                     else:
-                        global_vars.append(var)
+                        varlist.append(var)
+                        
+                for var in varlist:
+                    total_vars.append(var)
 
                 ######################
                 # Variables utilised #
@@ -668,7 +682,12 @@ with open(sys.argv[1]) as tpl_file:
                     if re.search(model_rx, var_line):
                         pass
                     elif re.search(log_rx, var_line):
-                        pass
+                        subs = re.findall(sub_rx, var_line) # multiple substitutions
+                        if subs:
+                            for sub in subs:
+                                used.append(sub)
+                                #print sub
+                                #print varlist
                     elif re.search(search_rx, var_line):
                         pass
                     elif re.search(time_rx, var_line):
@@ -715,7 +734,8 @@ with open(sys.argv[1]) as tpl_file:
                 if list_var:
                     var = list_var.group(1)
                     if "[" in var or "." in var:
-                        used.append(re.search(sp_chars_rx, var_line).group(1))
+                        if re.search(sp_chars_rx, var_line):
+                            used.append(re.search(sp_chars_rx, var_line).group(1))
                     elif "%" in var:
                         pass # Just ignoring %...% subs, these will be checked in other function
                     else:
@@ -803,6 +823,13 @@ with open(sys.argv[1]) as tpl_file:
                     not_in = re.search(not_in_rx, var_line)
                     if not_in:
                         used.append(not_in.group(1))
+                        
+                    # Check for uneven brackets
+                    if "(" in var_line or ")" in var_line:
+                        openb = var_line.count('(')
+                        closeb = var_line.count(')')
+                        if not openb == closeb:
+                            syntax_errs.append(str(line_num) + ", Uneven opening and closing brackets:\n      " + str.strip(line))
                 
                 for var in used:
                     '''
@@ -810,22 +837,79 @@ with open(sys.argv[1]) as tpl_file:
                     If they used and not initialised, or initialised within an if block.
                     '''
                     
+                    #if var == "host":
+                        # print ("====================================")
+                        #print ("\nChecking...   " + str(var) + "\n")
+                        #print str(line_num) + ": " + str(var_line)
+                        # print global_vars
+                        # print varlist
+                    
                     # Get actual line number
                     if assigner > 1:
+                        #print ("Var " + str(var) + "assigner > 1")
                         in_brackets = re.search(in_brackets_rx, var_line)
                         if in_brackets:
+                            #print ("Var " + str(var) + "in brackets")
                             get_ln = re.compile("\$(\d+)\$\s+\S+\s*:=\s*%s,?"%var)
                             if re.search(get_ln, var_line):
                                 var_ln = re.search(get_ln, var_line).group(1)
 
                     if re.match(numeric_rx, var):
+                        #print ("Var " + str(var) + "integer")
                         pass # Variable is an integer value
-                            
-                    elif var not in global_vars:
+                        
+                    elif var in keyword_list:
                         '''
-                        The variable may be previously initialised, but then gets
-                        re-initialised inside the if-block, so we check against our
-                        global list.
+                            Variable is a keyword - some evaluation should be done
+                            in future to check keyword used appropriately
+                        '''
+                        #print ("Var " + str(var) + "In keyword_list")
+                        pass
+                        
+                    elif var in config_funcs:
+                        # This is a configuration function variable
+                        #print ("Var " + str(var) + "In config name")
+                        pass
+                    
+                    elif var in defins_funcs:
+                        # This is a definition function variable
+                        #print ("Var " + str(var) + "In definition name")
+                        pass
+                    
+                    elif var in global_vars:
+                        #print ("Var " + str(var) + "In global vars")
+                        # Check the line to see if it's declared as a function
+                        get_conf = re.compile("(\w+)\.%s"%var)
+                        line_conf = re.search(get_conf, var_line)
+                        if line_conf:
+                            if line_conf.group(1) in global_vars:
+                                '''
+                                    For configuration items, this needs to be a
+                                    seperate list from global_vars ideally because
+                                    we could still get mixed up with non-config name
+                                '''
+                                pass # variable belongs to configuration
+                            elif line_conf.group(1) in keyword_list:
+                                pass # is a keyword function
+                            else:
+                                # Configuration name is not valid
+                                syntax_errs.append(str(line_num) + ", Config item not valid:\n      " + str.strip(var_line))
+                        else:
+                            pass
+
+                        # elif defins:
+                            # print ("Var " + str(var) + "In definition block")
+                            # '''
+                                # Variable currently evaluated inside definitions block
+                                # Needs some extra rules or split from global vars
+                            # '''
+                            # pass
+                    else:
+                        #print ("Evaluating Var " + str(var))
+                        '''
+                            The variable may be previously initialised, but then gets
+                            re-initialised inside the if-block, so we check against our
+                            global list.
                         '''
 
                         # Variable just not initialised at all
@@ -837,36 +921,36 @@ with open(sys.argv[1]) as tpl_file:
                         
                         # Check variables inside the if-block
                         for warn in warn_list:
-
+    
                             if warn.variable == var:
                                 '''
-                                if a variable is on our warnlist, and the current variable
-                                matches it, we are interested
+                                    if a variable is on our warnlist, and the current variable
+                                    matches it, we are interested
                                 '''
                                 
                                 if warn.eval == 0:
                                     '''
-                                    if the current variable is outside the if-block then
-                                    this is definitely a valid warning.
+                                        if the current variable is outside the if-block then
+                                        this is definitely a valid warning.
                                     '''
                                     var_warn.append(str(var_ln) + ": " + str(var))
                                 
                                 if if_block == warn.block:
                                     #We're still inside the same if-block, we don't need a warning.
                                     same_block = True
-                                
+
                                 if if_block > warn.block:
                                     '''
-                                    The warning variable is inside an if-block earlier to
-                                    the current if-block therefore it needs a warning.
+                                        The warning variable is inside an if-block earlier to
+                                        the current if-block therefore it needs a warning.
                                     '''
                                     new_if_block = True
 
                         if not same_block and new_if_block:
                             '''
-                            This takes place outside of for loop as a var may be assigned
-                            twice but still be valid in the same block, so we have to check
-                            that it is both not the same block and that it is a new block.
+                                This takes place outside of for loop as a var may be assigned
+                                twice but still be valid in the same block, so we have to check
+                                that it is both not the same block and that it is a new block.
                             '''
                             var_warn.append(str(var_ln) + ": " + str(var))
 
@@ -906,8 +990,8 @@ with open(sys.argv[1]) as tpl_file:
                     rev_table_eval, rev_table_err, rev_line_num)
 
             # Pattern evaluation
-            pattern_name, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, pattern_list = sectionparse.pattern_parse(
-                pattern_name, fwd, row, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, rev_line_num)
+            pattern_name, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, pattern_list, varlist = sectionparse.pattern_parse(
+                pattern_name, fwd, row, rev_pattern_num, rev_endpattern_num, rev_patt_eval, rev_patt_parse, rev_patt_err, rev_line_num, varlist)
 
         # If inside pattern
         if rev_patt_parse:
@@ -1002,9 +1086,9 @@ print (" Number of fileGets:                   %s" %filegets)
 print (" Number of listDirectorys:             %s" %listdirs)
 print (" Number of fileInfos:                  %s" %fileinfos)
 print (" Number of registryKeys:               %s" %regkeys)
-varlist += global_vars
-varlist = evaluations.uniq(varlist)
-varlen = len(varlist) - keywords
+total_vars += global_vars
+total_vars = evaluations.uniq(total_vars)
+varlen = len(total_vars)
 print (" Number of variable assignments:       %s" %varlen)
 print (" Number of definition blocks:          %s" %define_count)
 print (" Number of SI types declared:          %s" %sis)
