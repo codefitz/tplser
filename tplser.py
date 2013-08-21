@@ -785,7 +785,7 @@ with open(sys.argv[1]) as tpl_file:
                         used.append(re.search(sp_chars_rx, var).group(1))
                         used.append(re.search(square_bracket_rx, var).group(1))
                     elif var == "not":
-                        if_not = (if_not_rx, var_line)
+                        if_not = re.search(if_not_rx, var_line)
                         if if_not:
                             var = if_not.group(1)
                             used.append(var)
