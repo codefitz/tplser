@@ -1,27 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>tplser - TPL File Parser</title>
-    <link rel="stylesheet" href="html/tplser.css">
-    <!--sources:
-        http://blog.teamtreehouse.com/reading-files-using-the-html5-filereader-api,
-        http://html5doctor.com/the-contenteditable-attribute/
+<html>
+
+    <!-- Credits:
+         http://blog.teamtreehouse.com/reading-files-using-the-html5-filereader-api,
+         http://html5doctor.com/the-contenteditable-attribute/
+         http://alan.blog-city.com/jquerylinedtextarea.htm
     -->
-</head>
-<body>
-    <div id="page-wrapper">
-        <h1>tplser - Light TPL IDE v0.1</h1>
+    
+    <head>
+        <title>tplser - Light TPL IDE</title>
+        <script src="html/jquery.min.js"></script>
+        <script src="html/linedtextarea.js"></script>
+        <link href="html/tplser.css" type="text/css" rel="stylesheet" />
+    </head>
+    
+    <body>
+
+        <h1>tplser - Light TPL IDE v0.2</h1>
         <div>
             Upload your tpl file: 
             <input type="file" id="fileInput">
         </div>
-        <div id="example-one" contenteditable="true">
-            <pre id="fileDisplayArea">
-            </pre>
-        </div>
-		
-    </div>
-    <script src="html/tplser.js"></script>
-</body>
+
+        <textarea id="fileDisplayArea" class="lined" rows="30" cols="180"></textarea>
+        <script src="html/tplser.js"></script>
+        <script>
+            $(function() {
+            $(".lined").linedtextarea(
+                {selectedLine: 1}
+            );
+        });
+        </script>
+
+    </body>
+    
 </html>
