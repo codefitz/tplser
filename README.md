@@ -2,11 +2,11 @@
 
 ## Version
 
-0.1.9 (Beta)
+0.2.0 (Beta)
 
 ## Description
 
-A TPL pattern language parser for BMC's Atrium Discovery and Dependency Mapping (ADDM). Developed with Python 2.6, 2.7
+A TPL pattern language parser and lightweight IDE for BMC's Atrium Discovery and Dependency Mapping (ADDM). Developed with Python 2.6, 2.7
 
 - PDB debugging is included (off by default) and can be enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
 - Bugs: Please submit an issue with sample TPL in order to prioritise fix/implementation.
@@ -17,11 +17,15 @@ This program is provided under an Apache license and does not contain code from 
 
 ## Usage
 
-To run:
+To run the parser:
 
 ```
 $ python tplser.py file.tpl
 ```
+
+To run the IDE:
+
+Open tplser.html in a modern html5 browser.
 
 ## Development
 
@@ -42,6 +46,7 @@ $ python tplser.py file.tpl
 
 ### Planned:
 
+* Integration of parser and IDE
 * Section headers: simple identities, business application instances
 * Syntax: typo catching
 * table syntax
@@ -72,6 +77,7 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
+| Beta | 0.2.0 | Added lightweight html IDE - no saving or syntax highlighting at current, no parser integration. |
 | Beta | 0.1.9 | Checking for redefined constants variable assignments.<br>Open/closing brackets count.<br>Fixed where undeclared variables getting missed where declared in another pattern. |
 | Alpha | 0.1.8 | Some more code cleanup and modules added.<br>Fixed false positive matches where mixed apostrophe/quotes used in line. |
 | Alpha | 0.1.7 | Moved regexes to compile functions in order to simplify code and eliminate duplication. |
