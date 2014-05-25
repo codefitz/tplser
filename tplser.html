@@ -1,37 +1,85 @@
 <!DOCTYPE html>
 <html>
 
-    <!-- Credits:
+<!-- Credits:
          http://blog.teamtreehouse.com/reading-files-using-the-html5-filereader-api,
          http://html5doctor.com/the-contenteditable-attribute/
          http://alan.blog-city.com/jquerylinedtextarea.htm
+         http://thiscouldbebetter.wordpress.com/2012/12/18/loading-editing-and-saving-a-text-file-in-html5-using-javascrip/
     -->
-    
-    <head>
-        <title>tplser - Light TPL IDE</title>
-        <script src="html/jquery.min.js"></script>
-        <script src="html/linedtextarea.js"></script>
-        <link href="html/tplser.css" type="text/css" rel="stylesheet" />
-    </head>
-    
-    <body>
 
-        <h1>tplser - Light TPL IDE v0.2</h1>
-        <div>
-            Upload your tpl file: 
-            <input type="file" id="fileInput">
-        </div>
+<head>
+    <title>tplser - Light TPL IDE</title>
+    <script src="html/jquery.min.js"></script>
+    <script src="html/linedtextarea.js"></script>
+    <link href="html/tplser.css" type="text/css" rel="stylesheet" />
+</head>
 
-        <textarea id="fileDisplayArea" class="lined" rows="30" cols="180"></textarea>
-        <script src="html/tplser.js"></script>
-        <script>
-            $(function() {
-            $(".lined").linedtextarea(
-                {selectedLine: 1}
-            );
+<body>
+
+    <h1>tplser - Light TPL IDE v0.3</h1>
+    <div>
+        Upload your tpl file:
+        <input type="file" id="fileInput">
+    </div>
+
+    <textarea id="fileDisplayArea" class="lined" rows="35"></textarea>
+    <script src="html/tplser.js"></script>
+    <script>
+        $(function () {
+            $(".lined").linedtextarea({
+                selectedLine: 1
+            });
         });
-        </script>
+    </script>
 
-    </body>
-    
+    Filename to Save As:
+    <input id="inputFileNameToSaveAs"></input>
+    <button onclick="saveTextAsFile()">Save File</button>
+
+    <script type='text/javascript'>
+        function saveTextAsFile() {
+            var textToWrite = document.getElementById("fileDisplayArea").value;
+            var textFileAsBlob = new Blob([textToWrite], {
+                type: 'text/plain'
+            });
+            var fileNameToSaveAs = document.getElementById("inputFileNameToSaveAs").value;
+
+            var downloadLink = document.createElement("a");
+            downloadLink.download = fileNameToSaveAs;
+            downloadLink.innerHTML = "Download File";
+            if (window.webkitURL != null) {
+                // Chrome allows the link to be clicked
+                // without actually adding it to the DOM.
+                downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+            } else {
+                // Firefox requires the link to be added to the DOM
+                // before it can be clicked.
+                downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+                downloadLink.onclick = destroyClickedElement;
+                downloadLink.style.display = "none";
+                document.body.appendChild(downloadLink);
+            }
+
+            downloadLink.click();
+        }
+
+        function destroyClickedElement(event) {
+            document.body.removeChild(event.target);
+        }
+
+        //function loadFileAsText() {
+        //    var fileInput = document.getElementById("fileInput").files[0];
+
+        //    var fileReader = new FileReader();
+        //    fileReader.onload = function (fileLoadedEvent) {
+        //        var textFromFileLoaded = fileLoadedEvent.target.result;
+        //        document.getElementById("fileDisplayArea").value = textFromFileLoaded;
+        //    };
+        //    fileReader.readAsText(fileInput, "UTF-8");
+        //}
+    </script>
+
+</body>
+
 </html>
