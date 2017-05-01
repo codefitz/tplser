@@ -11,4 +11,4 @@ def print_eval(section, open, close, clause, err, rev_err):
     if (rev_err):
         for line_err in rev_err:
             print ("   line " +str(line_err) + ": " + clause + " here or inside missing closing statement.")
-    print "\n"
+    print("\n")

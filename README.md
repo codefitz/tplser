@@ -6,12 +6,10 @@
 
 ## Description
 
-A TPL pattern language parser and lightweight IDE for BMC's Atrium Discovery and Dependency Mapping (ADDM). Developed with Python 2.6, 2.7
+A TPL pattern language parser and lightweight IDE for BMC's Discovery (formerly ADDM). Compatibile with Python 2.7-3.6.
 
-- PDB debugging is included (off by default) and can be enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
-- Bugs: Please submit an issue with sample TPL in order to prioritise fix/implementation.
-
----
+* PDB debugging is included (off by default) and can be enabled, to run the script normally, press "c" + [Enter] at the `(Pdb)` prompt.
+* Bugs: Please submit an issue with sample TPL in order to prioritise fix/implementation.
 
 This program is provided under an Apache license and does not contain code from ADDM, the TKU or any other software belonging to BMC or its partners or customers. It works independently of ADDM and is designed for use with TPL pattern language files only.
 
@@ -20,16 +18,16 @@ This program is provided under an Apache license and does not contain code from 
 To run the parser:
 
 ```
-$ python tplser.py file.tpl
+$ py tplser.py file.tpl
 ```
 
-To run the IDE:
+To run the basic editor:
 
 Open tplser.html in a modern html5 browser.
 
 ## Development
 
-### Working:
+### Working
 
 * IF evaluation parsing
 * FOR loop parsing
@@ -44,9 +42,8 @@ Open tplser.html in a modern html5 browser.
 * Invocations after a `stop;`
 * Checks for redefined constant variables
 
-### Planned:
+### Planned
 
-* Integration of parser and IDE
 * Section headers: simple identities, business application instances
 * Syntax: typo catching
 * table syntax
@@ -60,14 +57,17 @@ Open tplser.html in a modern html5 browser.
 * Can't use """ inside body.
 * Definitions block variables separation into definition name/define name/defined vars
 
-### Nice To Have:
+### Nice To Have
 
 * TPL versioning
 * TPL Best practice suggestions
 * Check imported tpl syntax (external tpl)
 * Handle packages with multiple tpl files
-* GUI
 * Check for node syntax that require an attribute to output
+
+## Known Issues
+
+* For loop inside of of an if/else will throw up undeclared variable error.
 
 ## Licensing
 
@@ -77,7 +77,8 @@ Apache 2.0 License - see LICENSE file.
 
 | Release | Version | Description |
 | --- | --- | --- |
-| Beta | 0.2.0 | Added lightweight html IDE - no saving or syntax highlighting at current, no parser integration. |
+| Beta | 0.2.0 | Some bug fixes and code refactoring for Python 3.6. Made stats a seperate script. |
+| Beta | 0.2.0 | Added lightweight html web interface - no saving or syntax highlighting at current, no parser integration. |
 | Beta | 0.1.9 | Checking for redefined constants variable assignments.<br>Open/closing brackets count.<br>Fixed where undeclared variables getting missed where declared in another pattern. |
 | Alpha | 0.1.8 | Some more code cleanup and modules added.<br>Fixed false positive matches where mixed apostrophe/quotes used in line. |
 | Alpha | 0.1.7 | Moved regexes to compile functions in order to simplify code and eliminate duplication. |

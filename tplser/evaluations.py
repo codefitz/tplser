@@ -45,7 +45,7 @@ def uniq(lst):
     Print a warning.
 '''
 def warnings(list, warning):
-    print "\n * " + warning + ":"
+    print("\n " + warning + ":")
     for var in list:
         print ("    line " + str(var))
-    print "\r"
+    print("\r")

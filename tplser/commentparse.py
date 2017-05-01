@@ -46,7 +46,7 @@ def noteblock(direction, comment, comment_line, line, open):
                 open -= 1
         else:
             if re.match(comment_line, line):
-                ignore_text = False
+                pass
             if open == 0:
                 ignore_text = True
                 open += 1

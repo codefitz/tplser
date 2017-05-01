@@ -1,5 +1,7 @@
 import re
-import evaluations
+
+from . import evaluations
+
 pattern_list = []
 
 '''
